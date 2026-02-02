@@ -1,0 +1,2 @@
+qt-win/6.10.2/mingw_64/lib/libQt6QmlDom.a filter=lfs diff=lfs merge=lfs -text
+qt-win/6.10.2/mingw_64/lib/libQt6QmlLS.a filter=lfs diff=lfs merge=lfs -text
