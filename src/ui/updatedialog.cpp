@@ -17,6 +17,10 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QProcess>
+#include <QFile>
+#include <QTextStream>
+#include <QStandardPaths>
+#include <QDir>
 
 UpdateDialog::UpdateDialog(const QString &currentVersion, const QString &newVersion,
                            const QString &downloadUrl, QWidget *parent)
@@ -186,17 +190,50 @@ void UpdateDialog::setupFinishedUi(const QString &filePath)
     m_updateBtn->disconnect();
     connect(m_updateBtn, &QPushButton::clicked, this, [this, filePath]() {
 #if defined(Q_OS_WIN)
+        // Windows: 直接打开 exe 安装程序
         QProcess::startDetached(filePath);
+        accept();
 #elif defined(Q_OS_MACOS)
+        // Mac: 打开 dmg/pkg
         QProcess::startDetached("open", {filePath});
+        accept();
 #elif defined(Q_OS_LINUX)
-        // Linux: 尝试 chmod +x 然后运行
-        QProcess::execute("chmod", {"+x", filePath});
-        QProcess::startDetached(filePath);
+        // Linux: 创建安装脚本，后台执行
+        // 1. sudo dpkg -i 安装包
+        // 2. 杀死原进程
+        // 3. sleep 1秒
+        // 4. 重新启动程序
+        QString scriptPath = QDir::tempPath() + "/nekomusic_update.sh";
+        QFile scriptFile(scriptPath);
+        if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&scriptFile);
+            out << "#!/bin/bash\n";
+            out << "# NekoMusic 更新安装脚本\n\n";
+            out << "# 安装 deb 包\n";
+            out << "sudo dpkg -i \"" << filePath << "\"\n\n";
+            out << "# 等待安装完成\n";
+            out << "sleep 1\n\n";
+            out << "# 杀死旧进程\n";
+            out << "pkill -f NekoMusic || true\n\n";
+            out << "# 等待旧进程退出\n";
+            out << "sleep 1\n\n";
+            out << "# 重新启动程序\n";
+            out << "nohup NekoMusic >/dev/null 2>&1 &\n\n";
+            out << "# 清理脚本自身\n";
+            out << "rm -f \"" << scriptPath << "\"\n";
+            scriptFile.close();
+
+            // 设置脚本可执行
+            scriptFile.setPermissions(QFileDevice::ExeOwner | QFileDevice::ReadOwner);
+
+            // 后台执行脚本
+            QProcess::startDetached("bash", {scriptPath});
+        }
+        accept();
 #else
         QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
-#endif
         accept();
+#endif
     });
     m_remindLaterBtn->setText(I18n::instance().tr("installLater"));
 }
