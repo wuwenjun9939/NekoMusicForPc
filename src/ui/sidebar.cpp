@@ -21,8 +21,16 @@
 #include <QStyle>
 
 namespace {
+QString navIconName(const QString &key) {
+    if (key == "favorites") return "heart";
+    if (key == "recent") return "clock";
+    if (key == "upload") return "upload";
+    if (key == "settings") return "settings";
+    return key; // home, etc.
+}
 QString navIconPath(const QString &key, bool active) {
-    return active ? QString(":/icons/nav_%1_active.png").arg(key) : QString(":/icons/nav_%1.png").arg(key);
+    QString name = navIconName(key);
+    return active ? QString(":/icons/nav_%1_active.png").arg(name) : QString(":/icons/nav_%1.png").arg(name);
 }
 }
 
