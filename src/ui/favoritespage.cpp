@@ -17,11 +17,9 @@
 #include <QLabel>
 #include <QPainter>
 #include <QPainterPath>
-#include <QMenu>
 #include <QGraphicsOpacityEffect>
 #include <QPropertyAnimation>
 #include <QMouseEvent>
-#include <QContextMenuEvent>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QJsonDocument>
@@ -140,13 +138,18 @@ public:
             timeLbl->setStyleSheet("QLabel { font-size: 12px; color: " + QString(Theme::kTextMuted) + "; }");
             lay->addWidget(timeLbl);
         }
+
+        // 红心图标（已收藏状态，纯展示）
+        auto *heartLbl = new QLabel(this);
+        heartLbl->setFixedSize(24, 24);
+        heartLbl->setPixmap(Icons::render(Icons::kHeart, 20, QColor(255, 70, 70)));
+        lay->addWidget(heartLbl);
     }
 
     int musicId() const { return m_musicId; }
     const MusicInfo& info() const { return m_info; }
 
     std::function<void(int)> onClicked;
-    std::function<void(int)> onRemove;
 
 protected:
     void paintEvent(QPaintEvent *event) override
@@ -165,22 +168,6 @@ protected:
             onClicked(m_musicId);
         }
         QWidget::mousePressEvent(e);
-    }
-
-    void contextMenuEvent(QContextMenuEvent *event) override
-    {
-        QMenu menu(this);
-        menu.setStyleSheet(
-            "QMenu { background-color: rgba(40, 40, 50, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 4px; }"
-            "QMenu::item { color: #e0e0e0; padding: 8px 24px; border-radius: 4px; }"
-            "QMenu::item:selected { background-color: rgba(255, 255, 255, 0.1); }"
-        );
-
-        QAction *removeAction = menu.addAction(I18n::instance().tr("removeFavorite"));
-        QAction *selected = menu.exec(event->globalPos());
-        if (selected == removeAction && onRemove) {
-            onRemove(m_musicId);
-        }
     }
 
 private:
@@ -307,30 +294,7 @@ void FavoritesPage::loadFavorites()
                 Q_UNUSED(musicId);
                 emit playRequested(info.id, info.title, info.artist, info.coverUrl);
             };
-            card->onRemove = [this](int musicId) {
-                removeFavorite(musicId);
-            };
             m_listLay->addWidget(card);
-        }
-    });
-}
-
-void FavoritesPage::removeFavorite(int musicId)
-{
-    if (!UserManager::instance().isLoggedIn()) return;
-
-    QUrl url(QString::fromUtf8("%1/api/user/favorites/%2").arg(Theme::kApiBase).arg(musicId));
-    QNetworkRequest req(url);
-    req.setRawHeader("Authorization", UserManager::instance().token().toUtf8());
-
-    auto *nam = new QNetworkAccessManager(this);
-    auto *reply = nam->deleteResource(req);
-    QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, musicId]() {
-        reply->deleteLater();
-        if (reply->error() == QNetworkReply::NoError) {
-            emit favoriteRemoved(musicId);
-            // 刷新列表
-            loadFavorites();
         }
     });
 }

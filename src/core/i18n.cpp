@@ -274,7 +274,10 @@ static QMap<QString, QString> zhCN()
     m["confirmRemove"] = QStringLiteral("确认移除");
     m["confirmRemoveMessage"] = QStringLiteral("确定要从歌单中移除这首音乐吗？");
     m["emptyFavorites"] = QStringLiteral("暂无收藏音乐");
-    m["removeFavorite"] = QStringLiteral("取消收藏");
+    m["addToFavorites"] = QStringLiteral("添加到收藏");
+    m["removeFromFavorites"] = QStringLiteral("取消收藏");
+    m["cancelFavoriteSuccess"] = QStringLiteral("已取消收藏");
+    m["cancelFavoriteFailed"] = QStringLiteral("取消收藏失败");
     m["deleteConfirmWithPlaylistName"] = QStringLiteral("确定要删除歌单\"{name}\"吗？此操作不可恢复。");
     m["invalidEmail"] = QStringLiteral("邮箱格式不正确");
     m["emailPlaceholder"] = QStringLiteral("请输入邮箱");
@@ -757,7 +760,10 @@ static QMap<QString, QString> enUS()
     m["confirmRemove"] = "Confirm Removal";
     m["confirmRemoveMessage"] = "Are you sure you want to remove this music from the playlist?";
     m["emptyFavorites"] = "No favorite music yet";
-    m["removeFavorite"] = "Remove favorite";
+    m["addToFavorites"] = "Add to favorites";
+    m["removeFromFavorites"] = "Remove from favorites";
+    m["cancelFavoriteSuccess"] = "Favorite removed";
+    m["cancelFavoriteFailed"] = "Failed to remove favorite";
     m["deleteConfirmWithPlaylistName"] = "Are you sure you want to delete playlist \"{name}\"? This cannot be undone.";
     m["invalidEmail"] = "Invalid email format";
     m["emailPlaceholder"] = "Enter email";

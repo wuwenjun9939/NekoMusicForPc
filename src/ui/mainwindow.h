@@ -68,6 +68,11 @@ private:
     void playMusicFromPlaylist(int musicId);
     void playNext();
     void playPrevious();
+    void toggleFavorite(int musicId);
+
+private:
+    bool checkIsFavorited(int musicId);
+    void loadFavoritesCache();
 
     bool m_switching = false;
     TitleBar *m_titleBar = nullptr;
@@ -90,4 +95,5 @@ private:
     ApiClient *m_apiClient = nullptr;
     QSystemTrayIcon *m_trayIcon = nullptr;
     QMenu *m_trayMenu = nullptr;
+    QList<int> m_favoritesCache;  // 缓存已收藏的音乐ID
 };

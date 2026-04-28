@@ -22,7 +22,6 @@ public:
 
 signals:
     void playRequested(int musicId, const QString& title, const QString& artist, const QString& coverUrl);
-    void favoriteRemoved(int musicId);
 
 protected:
     void paintEvent(QPaintEvent *) override;
@@ -30,7 +29,6 @@ protected:
 private:
     void setupUi();
     void loadFavorites();
-    void removeFavorite(int musicId);
 
     ApiClient *m_apiClient = nullptr;
     QVBoxLayout *m_mainLay = nullptr;

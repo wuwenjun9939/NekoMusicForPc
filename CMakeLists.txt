@@ -42,6 +42,7 @@ set(SOURCES
     src/ui/svgicon.cpp
     src/ui/settingspage.cpp
     src/ui/favoritespage.cpp
+    src/ui/toast.cpp
     src/ui/recentpage.cpp
     src/ui/logindialog.cpp
     src/ui/forgotpassworddialog.cpp

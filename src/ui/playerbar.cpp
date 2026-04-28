@@ -21,6 +21,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QStyle>
+#include <QDebug>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 
@@ -171,20 +172,26 @@ void PlayerBar::setupUi()
     cl->addLayout(progL);
     lay->addWidget(center, 1);
 
-    // ─── 右侧：音量 ─────────────────────────────────
+    // ─── 右侧：收藏+音量 ─────────────────────────────────
     auto *right = new QWidget(this);
     right->setFixedWidth(160);
     auto *rl = new QHBoxLayout(right);
     rl->setContentsMargins(0, 0, 0, 0);
     rl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    rl->setSpacing(10);
 
-    auto *modeBtn = new QPushButton(this);
-    modeBtn->setObjectName("pbCtrlBtn");
-    modeBtn->setFixedSize(28, 28);
-    modeBtn->setIcon(Icons::icon(Icons::kShuffle, 18, kCtrlNormal, kCtrlActive));
-    modeBtn->setCursor(Qt::PointingHandCursor);
-    modeBtn->setToolTip(I18n::instance().tr("playModeList"));
-    rl->addWidget(modeBtn);
+    // 收藏按钮
+    m_heartBtn = new QPushButton(this);
+    m_heartBtn->setObjectName("pbHeartBtn");
+    m_heartBtn->setFixedSize(28, 28);
+    m_heartBtn->setIcon(Icons::render(Icons::kHeart, 18, QColor(150, 150, 150)));  // 默认灰色
+    m_heartBtn->setCursor(Qt::PointingHandCursor);
+    m_heartBtn->setToolTip(I18n::instance().tr("addToFavorites"));
+    connect(m_heartBtn, &QPushButton::clicked, this, [this]() {
+        qDebug() << "[播放栏] 红心按钮点击, m_currentMusicId =" << m_currentMusicId;
+        emit favoriteClicked(m_currentMusicId);
+    });
+    rl->addWidget(m_heartBtn);
 
     auto *playlistBtn = new QPushButton(this);
     playlistBtn->setObjectName("pbPlaylistBtn");
@@ -277,6 +284,24 @@ void PlayerBar::setSongInfo(const QString &title, const QString &artist, const Q
 void PlayerBar::setCoverVisible(bool visible)
 {
     if (m_cover) m_cover->setVisible(visible);
+}
+
+void PlayerBar::setCurrentMusicId(int musicId)
+{
+    qDebug() << "[播放栏] 设置当前音乐ID:" << musicId;
+    m_currentMusicId = musicId;
+    m_isFavorited = false;
+    setFavoriteStatus(false);
+}
+
+void PlayerBar::setFavoriteStatus(bool isFavorited)
+{
+    m_isFavorited = isFavorited;
+    if (m_heartBtn) {
+        QColor iconColor = isFavorited ? QColor(255, 70, 70) : QColor(150, 150, 150);
+        m_heartBtn->setIcon(Icons::render(Icons::kHeart, 18, iconColor));
+        m_heartBtn->setToolTip(isFavorited ? I18n::instance().tr("removeFromFavorites") : I18n::instance().tr("addToFavorites"));
+    }
 }
 
 void PlayerBar::setCoverPixmap(const QPixmap &pm)

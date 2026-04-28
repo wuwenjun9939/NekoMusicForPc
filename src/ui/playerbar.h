@@ -24,12 +24,15 @@ signals:
     void playlistClicked();
     void previousClicked();
     void nextClicked();
+    void favoriteClicked(int musicId);
 
 public:
     explicit PlayerBar(PlayerEngine *engine, QWidget *parent = nullptr);
     void retranslate();
     void setSongInfo(const QString &title, const QString &artist, const QString &coverUrl = QString());
     void setCoverVisible(bool visible);
+    void setCurrentMusicId(int musicId);
+    void setFavoriteStatus(bool isFavorited);
 
 protected:
     void paintEvent(QPaintEvent *) override;
@@ -42,6 +45,7 @@ private:
 
     PlayerEngine *m_engine = nullptr;
     QPushButton *m_playBtn = nullptr;
+    QPushButton *m_heartBtn = nullptr;
     QSlider *m_progress = nullptr;
     QSlider *m_volume = nullptr;
     QLabel *m_songName = nullptr;
@@ -49,4 +53,6 @@ private:
     QLabel *m_curTime = nullptr;
     QLabel *m_durTime = nullptr;
     QPushButton *m_cover = nullptr;
+    int m_currentMusicId = 0;
+    bool m_isFavorited = false;
 };

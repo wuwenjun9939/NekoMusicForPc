@@ -146,6 +146,7 @@ void MainWindow::setupUi()
     if (PlaylistManager::instance().hasLastPlayed()) {
         auto lastMusic = PlaylistManager::instance().lastPlayedMusic();
         m_playerBar->setSongInfo(lastMusic.title, lastMusic.artist, lastMusic.coverUrl);
+        m_playerBar->setCurrentMusicId(lastMusic.id);
         m_playerPage->setMusicInfo(lastMusic.id, lastMusic.title, lastMusic.artist, QString(), lastMusic.coverUrl);
         m_engine->setCurrentMusic(lastMusic);
 
@@ -179,6 +180,7 @@ void MainWindow::setupUi()
     connect(m_favoritesPage, &FavoritesPage::playRequested, this, &MainWindow::playMusicById);
     connect(&UserManager::instance(), &UserManager::loginStateChanged, this, [this]() {
         if (m_favoritesPage) m_favoritesPage->refresh();
+        loadFavoritesCache();
     });
     connect(m_recentPage, &RecentPage::playRequested, this, &MainWindow::playMusicById);
     connect(m_sidebar, &Sidebar::playlistClicked, this, &MainWindow::showPlaylistDetailPage);
@@ -305,6 +307,9 @@ void MainWindow::setupUi()
     // 上一首/下一首
     connect(m_playerBar, &PlayerBar::previousClicked, this, &MainWindow::playPrevious);
     connect(m_playerBar, &PlayerBar::nextClicked, this, &MainWindow::playNext);
+
+    // 收藏按钮
+    connect(m_playerBar, &PlayerBar::favoriteClicked, this, &MainWindow::toggleFavorite);
 
     // 播放页面返回
     connect(m_playerPage, &PlayerPage::backRequested, this, [this]() {
@@ -545,6 +550,11 @@ void MainWindow::playMusicById(int musicId, const QString &title, const QString 
 
     // Update player bar
     m_playerBar->setSongInfo(title, artist, coverUrl);
+    m_playerBar->setCurrentMusicId(musicId);
+
+    // 检查收藏状态
+    bool isFavorited = checkIsFavorited(musicId);
+    m_playerBar->setFavoriteStatus(isFavorited);
 
     // Update player page
     m_playerPage->setMusicInfo(musicId, title, artist, QString(), coverUrl);
@@ -653,4 +663,89 @@ void MainWindow::onTrayQuit()
 {
     // 真正退出应用
     QApplication::quit();
+}
+
+void MainWindow::toggleFavorite(int musicId)
+{
+    qDebug() << "[收藏] 切换收藏, musicId =" << musicId;
+    qDebug() << "[收藏] m_apiClient =" << (m_apiClient != nullptr) << ", 登录状态 =" << UserManager::instance().isLoggedIn();
+
+    if (musicId <= 0 || !m_apiClient) return;
+
+    bool isFavorited = checkIsFavorited(musicId);
+    qDebug() << "[收藏] 当前收藏状态 =" << isFavorited;
+
+    if (isFavorited) {
+        qDebug() << "[收藏] 正在取消收藏, musicId =" << musicId;
+        QUrl url(QString::fromUtf8("%1/api/user/favorites/%2").arg(Theme::kApiBase).arg(musicId));
+        QNetworkRequest req(url);
+        req.setRawHeader("Authorization", UserManager::instance().token().toUtf8());
+
+        auto *nam = new QNetworkAccessManager(this);
+        auto *reply = nam->deleteResource(req);
+        QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, musicId, nam]() {
+            reply->deleteLater();
+            nam->deleteLater();
+            qDebug() << "[收藏] 取消收藏响应, error =" << reply->error() << ", body =" << reply->readAll();
+            if (reply->error() == QNetworkReply::NoError) {
+                m_favoritesCache.removeAll(musicId);
+                m_playerBar->setFavoriteStatus(false);
+                qDebug() << "[收藏] 已从缓存移除并更新UI";
+            }
+        });
+    } else {
+        qDebug() << "[收藏] 正在添加收藏, musicId =" << musicId;
+        QUrl url(QString::fromUtf8("%1/api/user/favorites").arg(Theme::kApiBase));
+        QNetworkRequest req(url);
+        req.setRawHeader("Authorization", UserManager::instance().token().toUtf8());
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+        QJsonObject obj;
+        obj.insert("musicId", musicId);
+        QJsonDocument doc(obj);
+
+        auto *nam = new QNetworkAccessManager(this);
+        auto *reply = nam->post(req, doc.toJson());
+        QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, musicId, nam]() {
+            reply->deleteLater();
+            nam->deleteLater();
+            qDebug() << "[收藏] 添加收藏响应, error =" << reply->error() << ", body =" << reply->readAll();
+            if (reply->error() == QNetworkReply::NoError) {
+                if (!m_favoritesCache.contains(musicId)) {
+                    m_favoritesCache.append(musicId);
+                }
+                m_playerBar->setFavoriteStatus(true);
+                qDebug() << "[收藏] 已加入缓存并更新UI";
+            }
+        });
+    }
+}
+
+bool MainWindow::checkIsFavorited(int musicId)
+{
+    return m_favoritesCache.contains(musicId);
+}
+
+void MainWindow::loadFavoritesCache()
+{
+    qDebug() << "[收藏] 加载收藏缓存, 登录状态 =" << UserManager::instance().isLoggedIn();
+    m_favoritesCache.clear();
+
+    if (!UserManager::instance().isLoggedIn()) {
+        qDebug() << "[收藏] 未登录，跳过加载";
+        return;
+    }
+
+    m_apiClient->fetchFavorites([this](bool success, const QList<QVariantMap>& favorites) {
+        qDebug() << "[收藏] 获取收藏列表: success =" << success << ", 数量 =" << favorites.size();
+        if (success) {
+            for (const auto &fav : favorites) {
+                int id = fav.value("id").toInt();
+                if (id > 0) {
+                    m_favoritesCache.append(id);
+                }
+            }
+            qDebug() << "[收藏] 缓存加载完成, 共" << m_favoritesCache.size() << "条";
+        }
+    });
 }
