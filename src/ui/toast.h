@@ -39,9 +39,6 @@ protected:
 
 private:
     void initUi(const QString &message, Type type);
-    QColor getBorderColor(Type type) const;
-    QColor getIconColor(Type type) const;
-    QString getIconPath(Type type) const;
 
     int m_durationMs;
 };

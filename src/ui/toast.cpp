@@ -14,6 +14,7 @@
 #include <QPainterPath>
 #include <QGraphicsOpacityEffect>
 #include <QPropertyAnimation>
+#include <QParallelAnimationGroup>
 #include <QTimer>
 #include <QVariant>
 
@@ -28,52 +29,83 @@ Toast::Toast(QWidget *parent, const QString &message, Type type, int durationMs)
 void Toast::show(QWidget *parent, const QString &message, Type type, int durationMs)
 {
     qDebug() << "[Toast] 创建Toast:" << message << ", type =" << type << ", duration =" << durationMs;
-    qDebug() << "[Toast] parent =" << parent << ", parent->width() =" << parent->width();
     auto *toast = new Toast(parent, message, type, durationMs);
 
     // 确保窗口大小已计算
     toast->adjustSize();
-    qDebug() << "[Toast] toast->size() =" << toast->size();
+    int toastW = toast->width();
+    int toastH = toast->height();
+    int parentW = parent->width();
 
-    // 定位到父窗口右上角（标题栏下方，标题栏约56px）
-    int x = parent->width() - toast->width() - 24;
-    int y = 64;  // 标题栏56px + 8px间距
-    toast->move(x, y);
-    qDebug() << "[Toast] 位置 = (" << x << "," << y << ")";
+    // 计算位置：标题栏下方，右上角
+    int targetX = parentW - toastW - 24;
+    int y = 64;
+    QPoint startPos(parentW + 24, y);     // 屏幕右侧外
+    QPoint targetPos(targetX, y);          // 最终位置
 
-    // 淡入动画
+    // 初始放在屏幕外
+    toast->move(startPos);
+
+    // 透明度效果
     auto *effect = new QGraphicsOpacityEffect(toast);
     effect->setOpacity(0.0);
     toast->setGraphicsEffect(effect);
 
+    // ── 入场动画：滑动 + 透明度 ──
+    // 滑动：OutBack 产生过冲回弹的液态感
+    auto *slideIn = new QPropertyAnimation(toast, "pos", toast);
+    slideIn->setDuration(450);
+    slideIn->setStartValue(startPos);
+    slideIn->setEndValue(targetPos);
+    slideIn->setEasingCurve(QEasingCurve::OutBack);
+
+    // 透明度：比滑动先完成，形成"先显形再落位"
     auto *fadeIn = new QPropertyAnimation(effect, "opacity", toast);
-    fadeIn->setDuration(300);
+    fadeIn->setDuration(250);
     fadeIn->setStartValue(0.0);
     fadeIn->setEndValue(1.0);
     fadeIn->setEasingCurve(QEasingCurve::OutCubic);
 
-    // 定时自动消失
+    auto *enterGroup = new QParallelAnimationGroup(toast);
+    enterGroup->addAnimation(slideIn);
+    enterGroup->addAnimation(fadeIn);
+
+    // ── 出场动画：滑动 + 透明度 ──
+    // 滑动：InBack 让Toast短暂犹豫后加速离开，像水滴被拉走
+    auto *slideOut = new QPropertyAnimation(toast, "pos", toast);
+    slideOut->setDuration(350);
+    slideOut->setStartValue(targetPos);
+    slideOut->setEndValue(QPoint(parentW + 24, y));
+    slideOut->setEasingCurve(QEasingCurve::InBack);
+
+    // 透明度
     auto *fadeOut = new QPropertyAnimation(effect, "opacity", toast);
-    fadeOut->setDuration(300);
+    fadeOut->setDuration(250);
     fadeOut->setStartValue(1.0);
     fadeOut->setEndValue(0.0);
     fadeOut->setEasingCurve(QEasingCurve::InCubic);
 
-    QObject::connect(fadeOut, &QPropertyAnimation::finished, toast, [toast]() {
-        qDebug() << "[Toast] 动画结束，销毁Toast";
+    auto *exitGroup = new QParallelAnimationGroup(toast);
+    exitGroup->addAnimation(slideOut);
+    exitGroup->addAnimation(fadeOut);
+
+    QObject::connect(exitGroup, &QParallelAnimationGroup::finished, toast, [toast]() {
+        qDebug() << "[Toast] 出场动画结束，销毁Toast";
         toast->deleteLater();
     });
 
+    // 定时触发退出
     auto *timer = new QTimer(toast);
     timer->setSingleShot(true);
-    QObject::connect(timer, &QTimer::timeout, toast, [fadeOut, toast]() {
-        qDebug() << "[Toast] 定时器触发，开始淡出";
-        fadeOut->start();
+    QObject::connect(timer, &QTimer::timeout, toast, [exitGroup]() {
+        qDebug() << "[Toast] 定时器触发，开始出场动画";
+        exitGroup->start();
     });
 
-    fadeIn->start();
+    // 启动
     static_cast<QWidget *>(toast)->show();
-    qDebug() << "[Toast] Toast已show";
+    enterGroup->start();
+    qDebug() << "[Toast] Toast已show，入场动画启动";
     timer->start(durationMs);
 }
 
@@ -143,23 +175,4 @@ void Toast::initUi(const QString &message, Type type)
 
     // 存储颜色供 paintEvent 使用
     setProperty("borderColor", borderColor);
-}
-
-QColor Toast::getBorderColor(Type type) const
-{
-    if (type == Success) return QColor(74, 222, 128);
-    if (type == Error) return QColor(239, 68, 68);
-    return QColor(59, 130, 246);
-}
-
-QColor Toast::getIconColor(Type type) const
-{
-    if (type == Success) return QColor(74, 222, 128);
-    if (type == Error) return QColor(239, 68, 68);
-    return QColor(59, 130, 246);
-}
-
-QString Toast::getIconPath(Type type) const
-{
-    return QString();
 }
