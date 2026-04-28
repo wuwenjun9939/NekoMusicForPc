@@ -4,7 +4,6 @@
  */
 
 #include "toast.h"
-#include "ui/svgicon.h"
 #include "theme/theme.h"
 
 #include <QVBoxLayout>
@@ -97,12 +96,12 @@ void Toast::initUi(const QString &message, Type type)
     else if (type == Error) iconColor = QColor(239, 68, 68);
     else iconColor = QColor(59, 130, 246);
 
-    // 使用不同的 SVG 图标
-    const char *iconPath = Icons::kHeart;  // 默认
-    if (type == Success) iconPath = Icons::kPlay;  // 用 play 作为 success 图标
-    else if (type == Error) iconPath = Icons::kClose;
+    // 使用 PNG 图标
+    const char *iconRes = ":/icons/icon_heart.png";  // 默认
+    if (type == Success) iconRes = ":/icons/icon_play.png";  // 用 play 作为 success 图标
+    else if (type == Error) iconRes = ":/icons/icon_close.png";
 
-    iconLbl->setPixmap(Icons::render(iconPath, 20, iconColor));
+    iconLbl->setPixmap(QPixmap(iconRes));
     lay->addWidget(iconLbl);
 
     // 消息文本

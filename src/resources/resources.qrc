@@ -3,6 +3,10 @@
         <file>icons/app.png</file>
         <file>icons/heart_gray.png</file>
         <file>icons/heart_red.png</file>
+        <file>icons/icon_heart.png</file>
+        <file>icons/icon_heart_sakura.png</file>
+        <file>icons/icon_play.png</file>
+        <file>icons/icon_close.png</file>
         <file>icons/nav_home.png</file>
         <file>icons/nav_home_active.png</file>
         <file>icons/nav_heart.png</file>

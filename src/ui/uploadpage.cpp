@@ -105,7 +105,7 @@ void UploadPage::setupUi()
     // Cover file with preview
     auto *coverRow = new QHBoxLayout();
     auto *coverIcon = new QLabel(card);
-    coverIcon->setPixmap(Icons::render(Icons::kHeart, 20, QColor(Theme::kSakura)));
+    coverIcon->setPixmap(QPixmap(":/icons/icon_heart_sakura.png"));
     coverRow->addWidget(coverIcon);
 
     auto *coverLabel = new QLabel(I18n::instance().tr("coverInfo") + " " + I18n::instance().tr("optional"), card);

@@ -142,7 +142,7 @@ public:
         // 红心图标（已收藏状态，纯展示）
         auto *heartLbl = new QLabel(this);
         heartLbl->setFixedSize(24, 24);
-        heartLbl->setPixmap(Icons::render(Icons::kHeart, 20, QColor(255, 70, 70)));
+        heartLbl->setPixmap(QPixmap(":/icons/icon_heart.png"));
         lay->addWidget(heartLbl);
     }
 
