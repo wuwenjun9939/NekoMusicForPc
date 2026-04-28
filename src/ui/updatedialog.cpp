@@ -191,9 +191,9 @@ void UpdateDialog::setupFinishedUi(const QString &filePath)
                 QProcess::startDetached("open", {filePath});
                 accept();
 #elif defined(Q_OS_LINUX)
-                // Linux: 创建安装脚本，后台执行
-                // 1. sudo dpkg -i 安装包
-                // 2. 杀死原进程
+                // Linux: 创建安装脚本，使用 pkexec 弹出图形密码认证
+                // 1. pkexec dpkg -i 安装包（会弹出系统密码框）
+                // 2. 杀死旧进程
                 // 3. sleep 1秒
                 // 4. 重新启动程序
                 QString scriptPath = QDir::tempPath() + "/nekomusic_update.sh";
@@ -203,8 +203,8 @@ void UpdateDialog::setupFinishedUi(const QString &filePath)
                     QTextStream out(&scriptFile);
                     out << "#!/bin/bash\n";
                     out << "# NekoMusic 更新安装脚本\n\n";
-                    out << "# 安装 deb 包\n";
-                    out << "sudo dpkg -i \"" << filePath << "\"\n\n";
+                    out << "# 安装 deb 包（pkexec 会弹出图形密码认证）\n";
+                    out << "pkexec env DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY dpkg -i \"" << filePath << "\"\n\n";
                     out << "# 等待安装完成\n";
                     out << "sleep 1\n\n";
                     out << "# 杀死旧进程\n";
