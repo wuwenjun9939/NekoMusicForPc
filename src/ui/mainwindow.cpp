@@ -700,14 +700,22 @@ void MainWindow::toggleFavorite(int musicId)
         QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, musicId, nam]() {
             reply->deleteLater();
             nam->deleteLater();
-            qDebug() << "[收藏] 取消收藏响应, error =" << reply->error() << ", body =" << reply->readAll();
+            QByteArray body = reply->readAll();
+            qDebug() << "[收藏] 取消收藏响应, error =" << reply->error() << ", body =" << body;
             if (reply->error() == QNetworkReply::NoError) {
                 m_favoritesCache.removeAll(musicId);
                 m_playerBar->setFavoriteStatus(false);
                 Toast::show(this, I18n::instance().tr("cancelFavoriteSuccess"), Toast::Success);
                 qDebug() << "[收藏] 已从缓存移除并更新UI";
             } else {
-                Toast::show(this, I18n::instance().tr("cancelFavoriteFailed"), Toast::Error);
+                QString reason = reply->errorString();
+                // 尝试从 JSON body 中提取错误信息
+                QJsonDocument doc = QJsonDocument::fromJson(body);
+                if (!doc.isNull() && doc.isObject()) {
+                    QString msg = doc.object().value("message").toString();
+                    if (!msg.isEmpty()) reason = msg;
+                }
+                Toast::show(this, I18n::instance().tr("cancelFavoriteFailed") + ": " + reason, Toast::Error);
             }
         });
     } else {
@@ -726,7 +734,8 @@ void MainWindow::toggleFavorite(int musicId)
         QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, musicId, nam]() {
             reply->deleteLater();
             nam->deleteLater();
-            qDebug() << "[收藏] 添加收藏响应, error =" << reply->error() << ", body =" << reply->readAll();
+            QByteArray body = reply->readAll();
+            qDebug() << "[收藏] 添加收藏响应, error =" << reply->error() << ", body =" << body;
             if (reply->error() == QNetworkReply::NoError) {
                 if (!m_favoritesCache.contains(musicId)) {
                     m_favoritesCache.append(musicId);
@@ -735,7 +744,13 @@ void MainWindow::toggleFavorite(int musicId)
                 Toast::show(this, I18n::instance().tr("favoriteSuccess"), Toast::Success);
                 qDebug() << "[收藏] 已加入缓存并更新UI";
             } else {
-                Toast::show(this, I18n::instance().tr("favoriteFailed"), Toast::Error);
+                QString reason = reply->errorString();
+                QJsonDocument doc = QJsonDocument::fromJson(body);
+                if (!doc.isNull() && doc.isObject()) {
+                    QString msg = doc.object().value("message").toString();
+                    if (!msg.isEmpty()) reason = msg;
+                }
+                Toast::show(this, I18n::instance().tr("favoriteFailed") + ": " + reason, Toast::Error);
             }
         });
     }
