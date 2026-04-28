@@ -8,7 +8,6 @@
 
 #include "sidebar.h"
 #include "theme/theme.h"
-#include "ui/svgicon.h"
 #include "ui/playlistlistitem.h"
 #include "core/i18n.h"
 #include "core/usermanager.h"
@@ -22,8 +21,8 @@
 #include <QStyle>
 
 namespace {
-QColor navIconColor(bool active) {
-    return active ? QColor(196, 167, 231) : QColor(245, 240, 255, 166);
+QString navIconPath(const QString &key, bool active) {
+    return active ? QString(":/icons/nav_%1_active.png").arg(key) : QString(":/icons/nav_%1.png").arg(key);
 }
 }
 
@@ -53,23 +52,23 @@ void Sidebar::setupUi()
     lay->setContentsMargins(10, 12, 10, 12);
     lay->setSpacing(8);
 
-    // 主导航（带 SVG 图标）
+    // 主导航（带 PNG 图标）
     lay->addWidget(createNavItem("home", I18n::instance().tr("home"),
-                                 Icons::icon(Icons::kHome, 20, navIconColor(true), navIconColor(true))));
+                                 QIcon(":/icons/nav_home_active.png")));
 
     // 我喜欢的（可点击导航）
     m_favBtn = createNavItem("favorites", I18n::instance().tr("favorites"),
-                             Icons::icon(Icons::kHeart, 20, navIconColor(false), navIconColor(false)));
+                             QIcon(":/icons/nav_heart.png"));
     lay->addWidget(m_favBtn);
 
     // 最近播放（可点击导航）
     m_recBtn = createNavItem("recent", I18n::instance().tr("recentPlay"),
-                             Icons::icon(Icons::kClock, 20, navIconColor(false), navIconColor(false)));
+                             QIcon(":/icons/nav_clock.png"));
     lay->addWidget(m_recBtn);
 
     // 上传音乐（可点击导航）
     m_uploadBtn = createNavItem("upload", I18n::instance().tr("uploadMusic"),
-                                Icons::icon(Icons::kUpload, 20, navIconColor(false), navIconColor(false)));
+                                QIcon(":/icons/nav_upload.png"));
     lay->addWidget(m_uploadBtn);
 
     // 分隔线
@@ -176,18 +175,8 @@ void Sidebar::setActiveNav(const QString &key)
         it.value()->setProperty("active", active);
         it.value()->style()->unpolish(it.value());
         it.value()->style()->polish(it.value());
-        // 更新图标颜色
-        if (it.key() == "home") {
-            it.value()->setIcon(Icons::render(Icons::kHome, 20, navIconColor(active)));
-        } else if (it.key() == "favorites") {
-            it.value()->setIcon(Icons::render(Icons::kHeart, 20, navIconColor(active)));
-        } else if (it.key() == "recent") {
-            it.value()->setIcon(Icons::render(Icons::kClock, 20, navIconColor(active)));
-        } else if (it.key() == "upload") {
-            it.value()->setIcon(Icons::render(Icons::kUpload, 20, navIconColor(active)));
-        } else if (it.key() == "settings") {
-            it.value()->setIcon(Icons::render(Icons::kSettings, 20, navIconColor(active)));
-        }
+        // 更新图标
+        it.value()->setIcon(QIcon(navIconPath(it.key(), active)));
     }
 }
 

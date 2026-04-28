@@ -3,6 +3,18 @@
         <file>icons/app.png</file>
         <file>icons/heart_gray.png</file>
         <file>icons/heart_red.png</file>
+        <file>icons/nav_home.png</file>
+        <file>icons/nav_home_active.png</file>
+        <file>icons/nav_heart.png</file>
+        <file>icons/nav_heart_active.png</file>
+        <file>icons/nav_clock.png</file>
+        <file>icons/nav_clock_active.png</file>
+        <file>icons/nav_upload.png</file>
+        <file>icons/nav_upload_active.png</file>
+        <file>icons/nav_settings.png</file>
+        <file>icons/nav_settings_active.png</file>
+        <file>icons/nav_music.png</file>
+        <file>icons/nav_music_active.png</file>
         <file>style.qss</file>
     </qresource>
 </RCC>
