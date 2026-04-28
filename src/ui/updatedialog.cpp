@@ -276,7 +276,7 @@ void UpdateDialog::showDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
         QString receivedStr;
         if (bytesReceived < 1024 * 1024)
         {
-            receivedStr = QString("%1 KB").arg(bytesReceived / 1024);
+            receivedStr = QString("%1 KiB").arg(bytesReceived / 1024);
         }
         else
         {
@@ -285,7 +285,7 @@ void UpdateDialog::showDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
         QString totalStr;
         if (bytesTotal < 1024 * 1024)
         {
-            totalStr = QString("%1 KB").arg(bytesTotal / 1024);
+            totalStr = QString("%1 KiB").arg(bytesTotal / 1024);
         }
         else
         {
