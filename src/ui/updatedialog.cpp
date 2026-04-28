@@ -49,8 +49,7 @@ void UpdateDialog::setupUi()
         "  background: rgba(30, 30, 50, 0.98); "
         "  border: 1px solid rgba(255, 255, 255, 0.1); "
         "  border-radius: 16px; "
-        "}"
-    );
+        "}");
 
     auto *containerLay = new QVBoxLayout(container);
     containerLay->setContentsMargins(32, 32, 32, 24);
@@ -62,8 +61,7 @@ void UpdateDialog::setupUi()
     m_titleLbl->setStyleSheet(
         "QLabel#updateTitle { "
         "  font-size: 20px; font-weight: 700; color: white; "
-        "}"
-    );
+        "}");
     m_titleLbl->setAlignment(Qt::AlignCenter);
     containerLay->addWidget(m_titleLbl);
 
@@ -78,8 +76,7 @@ void UpdateDialog::setupUi()
         infoWidget);
     m_currentVerLbl->setObjectName("currentVer");
     m_currentVerLbl->setStyleSheet(
-        "QLabel#currentVer { font-size: 14px; color: rgba(255, 255, 255, 0.6); }"
-    );
+        "QLabel#currentVer { font-size: 14px; color: rgba(255, 255, 255, 0.6); }");
     infoLay->addWidget(m_currentVerLbl);
 
     m_newVerLbl = new QLabel(
@@ -87,8 +84,7 @@ void UpdateDialog::setupUi()
         infoWidget);
     m_newVerLbl->setObjectName("newVer");
     m_newVerLbl->setStyleSheet(
-        "QLabel#newVer { font-size: 16px; font-weight: 600; color: " + QString(Theme::kLavender) + "; }"
-    );
+        "QLabel#newVer { font-size: 16px; font-weight: 600; color: " + QString(Theme::kLavender) + "; }");
     infoLay->addWidget(m_newVerLbl);
 
     containerLay->addWidget(infoWidget);
@@ -106,8 +102,7 @@ void UpdateDialog::setupUi()
         "QProgressBar::chunk#updateProgress { "
         "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #667eea, stop:1 #764ba2); "
         "  border-radius: 4px; "
-        "}"
-    );
+        "}");
     m_progressBar->hide();
     containerLay->addWidget(m_progressBar);
 
@@ -116,8 +111,7 @@ void UpdateDialog::setupUi()
     m_statusLbl->setObjectName("updateStatus");
     m_statusLbl->setAlignment(Qt::AlignCenter);
     m_statusLbl->setStyleSheet(
-        "QLabel#updateStatus { font-size: 13px; color: rgba(255, 255, 255, 0.6); }"
-    );
+        "QLabel#updateStatus { font-size: 13px; color: rgba(255, 255, 255, 0.6); }");
     m_statusLbl->hide();
     containerLay->addWidget(m_statusLbl);
 
@@ -138,12 +132,11 @@ void UpdateDialog::setupUi()
         "  border-radius: 8px; "
         "  font-size: 14px; "
         "}"
-        "QPushButton:hover { background: rgba(255, 255, 255, 0.15); }"
-    );
-    connect(m_remindLaterBtn, &QPushButton::clicked, this, [this]() {
+        "QPushButton:hover { background: rgba(255, 255, 255, 0.15); }");
+    connect(m_remindLaterBtn, &QPushButton::clicked, this, [this]()
+            {
         emit remindLater();
-        accept();
-    });
+        accept(); });
     btnLay->addWidget(m_remindLaterBtn, 1);
 
     m_updateBtn = new QPushButton(I18n::instance().tr("updateNow"), container);
@@ -157,13 +150,12 @@ void UpdateDialog::setupUi()
         "  border-radius: 8px; "
         "  font-size: 14px; font-weight: 600; "
         "}"
-        "QPushButton:hover { opacity: 0.9; }"
-    );
-    connect(m_updateBtn, &QPushButton::clicked, this, [this]() {
+        "QPushButton:hover { opacity: 0.9; }");
+    connect(m_updateBtn, &QPushButton::clicked, this, [this]()
+            {
         emit downloadRequested(m_downloadUrl);
         // 切换到下载状态
-        setupDownloadingUi();
-    });
+        setupDownloadingUi(); });
     btnLay->addWidget(m_updateBtn, 1);
 
     containerLay->addLayout(btnLay);
@@ -188,53 +180,55 @@ void UpdateDialog::setupFinishedUi(const QString &filePath)
     m_updateBtn->setEnabled(true);
     m_updateBtn->setText(I18n::instance().tr("installNow"));
     m_updateBtn->disconnect();
-    connect(m_updateBtn, &QPushButton::clicked, this, [this, filePath]() {
+    connect(m_updateBtn, &QPushButton::clicked, this, [this, filePath]()
+            {
 #if defined(Q_OS_WIN)
-        // Windows: 直接打开 exe 安装程序
-        QProcess::startDetached(filePath);
-        accept();
+                // Windows: 直接打开 exe 安装程序
+                QProcess::startDetached(filePath);
+                accept();
 #elif defined(Q_OS_MACOS)
-        // Mac: 打开 dmg/pkg
-        QProcess::startDetached("open", {filePath});
-        accept();
+                // Mac: 打开 dmg/pkg
+                QProcess::startDetached("open", {filePath});
+                accept();
 #elif defined(Q_OS_LINUX)
-        // Linux: 创建安装脚本，后台执行
-        // 1. sudo dpkg -i 安装包
-        // 2. 杀死原进程
-        // 3. sleep 1秒
-        // 4. 重新启动程序
-        QString scriptPath = QDir::tempPath() + "/nekomusic_update.sh";
-        QFile scriptFile(scriptPath);
-        if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            QTextStream out(&scriptFile);
-            out << "#!/bin/bash\n";
-            out << "# NekoMusic 更新安装脚本\n\n";
-            out << "# 安装 deb 包\n";
-            out << "sudo dpkg -i \"" << filePath << "\"\n\n";
-            out << "# 等待安装完成\n";
-            out << "sleep 1\n\n";
-            out << "# 杀死旧进程\n";
-            out << "pkill -f NekoMusic || true\n\n";
-            out << "# 等待旧进程退出\n";
-            out << "sleep 1\n\n";
-            out << "# 重新启动程序\n";
-            out << "nohup NekoMusic >/dev/null 2>&1 &\n\n";
-            out << "# 清理脚本自身\n";
-            out << "rm -f \"" << scriptPath << "\"\n";
-            scriptFile.close();
+                // Linux: 创建安装脚本，后台执行
+                // 1. sudo dpkg -i 安装包
+                // 2. 杀死原进程
+                // 3. sleep 1秒
+                // 4. 重新启动程序
+                QString scriptPath = QDir::tempPath() + "/nekomusic_update.sh";
+                QFile scriptFile(scriptPath);
+                if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text))
+                {
+                    QTextStream out(&scriptFile);
+                    out << "#!/bin/bash\n";
+                    out << "# NekoMusic 更新安装脚本\n\n";
+                    out << "# 安装 deb 包\n";
+                    out << "sudo dpkg -i \"" << filePath << "\"\n\n";
+                    out << "# 等待安装完成\n";
+                    out << "sleep 1\n\n";
+                    out << "# 杀死旧进程\n";
+                    out << "pkill -f NekoMusic || true\n\n";
+                    out << "# 等待旧进程退出\n";
+                    out << "sleep 1\n\n";
+                    out << "# 重新启动程序\n";
+                    out << "nohup NekoMusic >/dev/null 2>&1 &\n\n";
+                    out << "# 清理脚本自身\n";
+                    out << "rm -f \"" << scriptPath << "\"\n";
+                    scriptFile.close();
 
-            // 设置脚本可执行
-            scriptFile.setPermissions(QFileDevice::ExeOwner | QFileDevice::ReadOwner);
+                    // 设置脚本可执行
+                    scriptFile.setPermissions(QFileDevice::ExeOwner | QFileDevice::ReadOwner);
 
-            // 后台执行脚本
-            QProcess::startDetached("bash", {scriptPath});
-        }
-        accept();
+                    // 后台执行脚本
+                    QProcess::startDetached("bash", {scriptPath});
+                }
+                accept();
 #else
-        QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
-        accept();
+                QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
+                accept();
 #endif
-    });
+            });
     m_remindLaterBtn->setText(I18n::instance().tr("installLater"));
 }
 
@@ -244,38 +238,44 @@ void UpdateDialog::setupFailedUi(const QString &error)
     m_statusLbl->show();
     m_statusLbl->setText(QString("%1: %2").arg(I18n::instance().tr("downloadFailed"), error));
     m_statusLbl->setStyleSheet(
-        "QLabel#updateStatus { font-size: 13px; color: #ef4444; }"
-    );
+        "QLabel#updateStatus { font-size: 13px; color: #ef4444; }");
     m_updateBtn->setText(I18n::instance().tr("retry"));
     m_updateBtn->setEnabled(true);
     m_updateBtn->disconnect();
-    connect(m_updateBtn, &QPushButton::clicked, this, [this]() {
+    connect(m_updateBtn, &QPushButton::clicked, this, [this]()
+            {
         emit downloadRequested(m_downloadUrl);
         setupDownloadingUi();
         m_statusLbl->setStyleSheet(
             "QLabel#updateStatus { font-size: 13px; color: rgba(255, 255, 255, 0.6); }"
-        );
-    });
+        ); });
 }
 
 void UpdateDialog::showDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
 {
-    if (bytesTotal > 0) {
+    if (bytesTotal > 0)
+    {
         int percent = static_cast<int>(bytesReceived * 100 / bytesTotal);
         m_progressBar->setValue(percent);
 
         // 格式化进度文本
         QString receivedStr;
-        if (bytesReceived < 1024 * 1024) {
+        if (bytesReceived < 1024 * 1024)
+        {
             receivedStr = QString("%1 KB").arg(bytesReceived / 1024);
-        } else {
-            receivedStr = QString("%1 MB").arg(bytesReceived / (1024.0 * 1024.0), 0, 'f', 1);
+        }
+        else
+        {
+            receivedStr = QString("%1 MiB").arg(bytesReceived / (1024.0 * 1024.0), 0, 'f', 1);
         }
         QString totalStr;
-        if (bytesTotal < 1024 * 1024) {
+        if (bytesTotal < 1024 * 1024)
+        {
             totalStr = QString("%1 KB").arg(bytesTotal / 1024);
-        } else {
-            totalStr = QString("%1 MB").arg(bytesTotal / (1024.0 * 1024.0), 0, 'f', 1);
+        }
+        else
+        {
+            totalStr = QString("%1 MiB").arg(bytesTotal / (1024.0 * 1024.0), 0, 'f', 1);
         }
         m_statusLbl->setText(QString("%1% - %2 / %3").arg(percent).arg(receivedStr).arg(totalStr));
     }
