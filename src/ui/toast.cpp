@@ -20,7 +20,6 @@
 Toast::Toast(QWidget *parent, const QString &message, Type type, int durationMs)
     : QWidget(parent), m_durationMs(durationMs)
 {
-    setWindowFlags(Qt::FramelessWindowHint | Qt::Tool | Qt::WindowStaysOnTopHint);
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_ShowWithoutActivating);
     initUi(message, type);
@@ -36,10 +35,11 @@ void Toast::show(QWidget *parent, const QString &message, Type type, int duratio
     toast->adjustSize();
     qDebug() << "[Toast] toast->size() =" << toast->size();
 
-    // 定位到右上角（相对于父窗口）
-    QPoint pos = parent->mapToGlobal(QPoint(parent->width() - toast->width() - 24, 80));
-    toast->move(pos);
-    qDebug() << "[Toast] 位置 =" << pos;
+    // 定位到父窗口右上角（标题栏下方，标题栏约56px）
+    int x = parent->width() - toast->width() - 24;
+    int y = 64;  // 标题栏56px + 8px间距
+    toast->move(x, y);
+    qDebug() << "[Toast] 位置 = (" << x << "," << y << ")";
 
     // 淡入动画
     auto *effect = new QGraphicsOpacityEffect(toast);
