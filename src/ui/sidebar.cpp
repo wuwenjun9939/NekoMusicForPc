@@ -231,6 +231,38 @@ void Sidebar::refreshPlaylistList()
                     }
                 }
             });
+            connect(item, &PlaylistListItem::editDescriptionRequested, this, [this, playlistId = pl.id]() {
+                if (!m_apiClient) return;
+                // 找到当前歌单信息
+                for (const auto &pl : m_apiPlaylists) {
+                    if (pl.id == playlistId) {
+                        // 弹出修改描述对话框
+                        bool ok;
+                        QString newDesc = QInputDialog::getText(this,
+                            I18n::instance().tr("modifyPlaylistDesc"),
+                            I18n::instance().tr("inputPlaylistDesc"),
+                            QLineEdit::Normal,
+                            pl.description,
+                            &ok);
+                        if (ok && newDesc != pl.description) {
+                            // 调用API更新歌单描述
+                            m_apiClient->updatePlaylist(playlistId, pl.name, newDesc, [this, playlistId, newDesc](bool success, const QString &, const QVariantMap &) {
+                                if (success) {
+                                    // 更新缓存
+                                    for (auto &p : m_apiPlaylists) {
+                                        if (p.id == playlistId) {
+                                            p.description = newDesc;
+                                            break;
+                                        }
+                                    }
+                                    refreshPlaylistList();
+                                }
+                            });
+                        }
+                        break;
+                    }
+                }
+            });
             connect(item, &PlaylistListItem::deleteRequested, this, [this, playlistId = pl.id]() {
                 if (!m_apiClient) return;
                 m_apiClient->deletePlaylist(playlistId, [this, playlistId](bool success, const QString &) {

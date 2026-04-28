@@ -16,6 +16,7 @@ public:
 signals:
     void clicked(int playlistId);
     void renameRequested(int playlistId);
+    void editDescriptionRequested(int playlistId);
     void deleteRequested(int playlistId);
 
 protected:

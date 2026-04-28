@@ -88,11 +88,14 @@ void PlaylistListItem::contextMenuEvent(QContextMenuEvent *event) {
     );
 
     QAction *renameAction = menu.addAction(QStringLiteral("重命名"));
+    QAction *editDescAction = menu.addAction(QStringLiteral("修改描述"));
     QAction *deleteAction = menu.addAction(QStringLiteral("删除"));
 
     QAction *selected = menu.exec(event->globalPos());
     if (selected == renameAction) {
         emit renameRequested(m_playlistId);
+    } else if (selected == editDescAction) {
+        emit editDescriptionRequested(m_playlistId);
     } else if (selected == deleteAction) {
         emit deleteRequested(m_playlistId);
     }
