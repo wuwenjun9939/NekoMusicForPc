@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(NekoMusic
-    VERSION 2026.0417.0
+    VERSION 2026.417.0
     LANGUAGES CXX
 )
 
@@ -57,10 +57,12 @@ set(SOURCES
     src/core/musicdownloader.cpp
     src/core/playlistdb.cpp
     src/core/playlistmanager.cpp
+    src/core/updatechecker.cpp
     src/ui/playlistlistitem.cpp
     src/ui/playlistdetailpage.cpp
     src/ui/addtoplaylistdialog.cpp
     src/ui/playlistpanel.cpp
+    src/ui/updatedialog.cpp
 )
 
 set(HEADERS
@@ -90,10 +92,12 @@ set(HEADERS
     src/core/musicinfo.h
     src/core/playlistdb.h
     src/core/playlistmanager.h
+    src/core/updatechecker.h
     src/ui/playlistlistitem.h
     src/ui/playlistdetailpage.h
     src/ui/addtoplaylistdialog.h
     src/ui/playlistpanel.h
+    src/ui/updatedialog.h
 )
 
 # Resources

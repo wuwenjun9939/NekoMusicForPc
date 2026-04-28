@@ -22,6 +22,7 @@
 #include "ui/addtoplaylistdialog.h"
 #include "ui/playlistpanel.h"
 #include "ui/toast.h"
+#include "ui/updatedialog.h"
 #include "core/playerengine.h"
 #include "core/i18n.h"
 #include "core/apiclient.h"
@@ -29,7 +30,9 @@
 #include "core/usermanager.h"
 #include "core/playlistdb.h"
 #include "core/playlistmanager.h"
+#include "core/updatechecker.h"
 #include "theme/theme.h"
+#include "version.h"
 
 #include <QApplication>
 #include <QDebug>
@@ -69,6 +72,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     setWindowTitle(QStringLiteral("NekoMusic"));
     resize(1200, 800);
     setMinimumSize(960, 640);
+
+    // 延迟检查版本更新
+    QTimer::singleShot(2000, this, &MainWindow::checkForUpdates);
 }
 
 MainWindow::~MainWindow()
@@ -797,4 +803,34 @@ void MainWindow::loadFavoritesCache()
             }
         }
     });
+}
+
+void MainWindow::checkForUpdates()
+{
+    m_updateChecker = new UpdateChecker(QString::fromUtf8(APP_VERSION), this);
+
+    connect(m_updateChecker, &UpdateChecker::updateAvailable, this, [this](const UpdateInfo &info) {
+        qDebug() << "[更新] 发现新版本:" << info.version << "下载链接:" << info.downloadUrl;
+        m_updateDialog = new UpdateDialog(m_updateChecker->currentVersion(), info.version, info.downloadUrl, this);
+
+        connect(m_updateDialog, &UpdateDialog::downloadRequested, this, [this](const QString &url) {
+            m_updateChecker->downloadUpdate(url);
+        });
+
+        connect(m_updateChecker, &UpdateChecker::downloadProgress, m_updateDialog, &UpdateDialog::showDownloadProgress);
+        connect(m_updateChecker, &UpdateChecker::downloadFinished, m_updateDialog, &UpdateDialog::showDownloadFinished);
+        connect(m_updateChecker, &UpdateChecker::downloadFailed, m_updateDialog, &UpdateDialog::showDownloadFailed);
+
+        m_updateDialog->exec();
+    });
+
+    connect(m_updateChecker, &UpdateChecker::noUpdate, this, []() {
+        qDebug() << "[更新] 已是最新版本";
+    });
+
+    connect(m_updateChecker, &UpdateChecker::checkFailed, this, [](const QString &error) {
+        qDebug() << "[更新] 检查失败:" << error;
+    });
+
+    m_updateChecker->checkForUpdates();
 }

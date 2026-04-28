@@ -31,6 +31,8 @@ class PlaylistDetailPage;
 class AddToPlaylistDialog;
 class PlaylistPanel;
 class ApiClient;
+class UpdateChecker;
+class UpdateDialog;
 
 class MainWindow : public QMainWindow
 {
@@ -69,6 +71,7 @@ private:
     void playNext();
     void playPrevious();
     void toggleFavorite(int musicId);
+    void checkForUpdates();
 
 private:
     bool checkIsFavorited(int musicId);
@@ -96,4 +99,6 @@ private:
     QSystemTrayIcon *m_trayIcon = nullptr;
     QMenu *m_trayMenu = nullptr;
     QList<int> m_favoritesCache;  // 缓存已收藏的音乐ID
+    UpdateChecker *m_updateChecker = nullptr;
+    UpdateDialog *m_updateDialog = nullptr;
 };

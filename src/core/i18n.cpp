@@ -162,6 +162,21 @@ static QMap<QString, QString> zhCN()
     m["inputPlaylistDesc"] = QStringLiteral("输入歌单描述");
     m["inputPlaylistName"] = QStringLiteral("请输入歌单名称");
     m["collectPlaylist"] = QStringLiteral("收藏歌单");
+    // 版本更新
+    m["newVersionAvailable"] = QStringLiteral("发现新版本");
+    m["currentVersion"] = QStringLiteral("当前版本");
+    m["newVersion"] = QStringLiteral("新版本");
+    m["remindLater"] = QStringLiteral("稍后提醒");
+    m["updateNow"] = QStringLiteral("立即更新");
+    m["downloading"] = QStringLiteral("下载中...");
+    m["downloadComplete"] = QStringLiteral("下载完成");
+    m["installNow"] = QStringLiteral("立即安装");
+    m["installLater"] = QStringLiteral("稍后安装");
+    m["downloadFailed"] = QStringLiteral("下载失败");
+    m["retry"] = QStringLiteral("重试");
+    m["checkForUpdates"] = QStringLiteral("检查更新");
+    m["alreadyLatest"] = QStringLiteral("已是最新版本");
+    m["version"] = QStringLiteral("版本");
     m["collectedPlaylist"] = QStringLiteral("已收藏歌单");
     m["uncollectPlaylist"] = QStringLiteral("取消收藏");
     m["removeFromPlaylist"] = QStringLiteral("从歌单中移除");
@@ -502,6 +517,21 @@ static QMap<QString, QString> nyaCN()
     m["noLyrics"] = QStringLiteral("暂无歌词喵~");
     m["basicInfo"] = QStringLiteral("基本信息喵~");
     m["uploadNote"] = QStringLiteral("上传的音乐会进入待审核状态喵~，审核通过后发布的说");
+    // 版本更新喵~
+    m["newVersionAvailable"] = QStringLiteral("发现新版本喵~");
+    m["currentVersion"] = QStringLiteral("当前版本喵~");
+    m["newVersion"] = QStringLiteral("新版本喵~");
+    m["remindLater"] = QStringLiteral("稍后提醒喵~");
+    m["updateNow"] = QStringLiteral("立即更新喵~");
+    m["downloading"] = QStringLiteral("下载中喵~...");
+    m["downloadComplete"] = QStringLiteral("下载完成喵~");
+    m["installNow"] = QStringLiteral("立即安装喵~");
+    m["installLater"] = QStringLiteral("稍后安装喵~");
+    m["downloadFailed"] = QStringLiteral("下载失败喵~");
+    m["retry"] = QStringLiteral("重试喵~");
+    m["checkForUpdates"] = QStringLiteral("检查更新喵~");
+    m["alreadyLatest"] = QStringLiteral("已是最新版本喵~");
+    m["version"] = QStringLiteral("版本喵~");
     return m;
 }
 
@@ -650,6 +680,21 @@ static QMap<QString, QString> enUS()
     m["inputPlaylistDesc"] = "Enter description";
     m["inputPlaylistName"] = "Please enter playlist name";
     m["collectPlaylist"] = "Collect Playlist";
+    // Update
+    m["newVersionAvailable"] = "New Version Available";
+    m["currentVersion"] = "Current Version";
+    m["newVersion"] = "New Version";
+    m["remindLater"] = "Remind Later";
+    m["updateNow"] = "Update Now";
+    m["downloading"] = "Downloading...";
+    m["downloadComplete"] = "Download Complete";
+    m["installNow"] = "Install Now";
+    m["installLater"] = "Install Later";
+    m["downloadFailed"] = "Download Failed";
+    m["retry"] = "Retry";
+    m["checkForUpdates"] = "Check for Updates";
+    m["alreadyLatest"] = "Already Latest";
+    m["version"] = "Version";
     m["collectedPlaylist"] = "Collected";
     m["uncollectPlaylist"] = "Uncollect";
     m["removeFromPlaylist"] = "Remove from Playlist";
@@ -669,7 +714,7 @@ static QMap<QString, QString> enUS()
     m["playSettings"] = "Playback Settings";
     m["language"] = "Language";
     m["languageSettings"] = "Language Settings";
-    m["languageNya"] = "Nya Chinese";
+    m["languageNya"] = "喵语中文";
     m["languageChinese"] = "简体中文";
     m["languageEnglish"] = "English";
     m["musicCache"] = "Music Cache";
@@ -843,7 +888,8 @@ static QMap<QString, QString> enUS()
 
 QString I18n::tr(const QString &key) const
 {
-    const auto &map = (m_lang == EnUS) ? enUS() : (m_lang == NyaCN) ? nyaCN() : zhCN();
+    const auto &map = (m_lang == EnUS) ? enUS() : (m_lang == NyaCN) ? nyaCN()
+                                                                    : zhCN();
     auto it = map.constFind(key);
     if (it != map.constEnd())
         return it.value();
