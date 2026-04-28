@@ -187,7 +187,8 @@ void UpdateDialog::setupFinishedUi(const QString &filePath)
                 QProcess::startDetached(filePath);
                 accept();
 #elif defined(Q_OS_MACOS)
-                // Mac: 打开 dmg/pkg
+                // Mac: 打开 dmg文件
+                // 鬼知道傻逼Mac怎么安装，反正是冤大头设备
                 QProcess::startDetached("open", {filePath});
                 accept();
 #elif defined(Q_OS_LINUX)
