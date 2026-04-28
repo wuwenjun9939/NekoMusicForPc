@@ -201,7 +201,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR}/generated
 if(LINUX)
     # Linux: install to /opt/Neko云音乐 (matches auto-update code)
     install(TARGETS ${PROJECT_NAME}
-        RUNTIME DESTINATION opt/Neko云音乐
+        RUNTIME DESTINATION /opt/Neko云音乐
     )
     
     # Desktop entry file
@@ -229,15 +229,16 @@ endif()
 # CPack configuration
 set(CPACK_PACKAGE_NAME "Neko云音乐")
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION}${PROJECT_VERSION_SUFFIX})
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Neko Music Player")
-set(CPACK_PACKAGE_VENDOR "Neko")
-set(CPACK_PACKAGE_CONTACT "neko@example.com")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "梦幻网络CN免费云音乐平台的官方客户端")
+set(CPACK_PACKAGE_VENDOR "FantasyNetwork")
+set(CPACK_PACKAGE_CONTACT "support@cnmsb.xin")
 set(CPACK_PACKAGE_FILE_NAME "Neko云音乐-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_PROCESSOR}")
 
 if(LINUX)
     # Debian package settings
     set(CPACK_GENERATOR "DEB")
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Neko")
+    set(CPACK_DEBIAN_PACKAGE_NAME "nekomusic")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "FantasyNetwork <support@cnmsb.xin>")
     set(CPACK_DEBIAN_PACKAGE_SECTION "multimedia")
     set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt6core6, libqt6gui6, libqt6widgets6, libqt6multimedia6, libqt6network6, libqt6sql6")
