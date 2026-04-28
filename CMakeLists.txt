@@ -9,12 +9,74 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
-set(CMAKE_AUTOUIC ON)
-
 # Qt6
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia Network SvgWidgets Sql)
+
+# For cross-compilation, disable AUTOMOC/AUTOUIC/AUTORCC and handle manually
+# because Qt6 CMake hardcodes Windows .exe paths for moc/uic/rcc
+if(CMAKE_CROSSCOMPILING)
+    set(CMAKE_AUTOMOC OFF)
+    set(CMAKE_AUTORCC OFF)
+    set(CMAKE_AUTOUIC OFF)
+
+    # Use Linux Qt tools for code generation
+    if(DEFINED ENV{QT_HOST_ROOT})
+        set(QT_HOST_MOC "$ENV{QT_HOST_ROOT}/libexec/moc")
+        set(QT_HOST_RCC "$ENV{QT_HOST_ROOT}/libexec/rcc")
+        set(QT_HOST_UIC "$ENV{QT_HOST_ROOT}/libexec/uic")
+    else()
+        set(QT_HOST_MOC "/usr/lib/qt6/libexec/moc")
+        set(QT_HOST_RCC "/usr/lib/qt6/libexec/rcc")
+        set(QT_HOST_UIC "/usr/lib/qt6/libexec/uic")
+    endif()
+
+    # Manually run moc on headers that contain Q_OBJECT
+    set(MOC_OUTPUT_DIR "${CMAKE_BINARY_DIR}/moc")
+    file(MAKE_DIRECTORY ${MOC_OUTPUT_DIR})
+
+    # Find all headers with Q_OBJECT macro
+    file(GLOB_RECURSE ALL_HEADERS "${CMAKE_SOURCE_DIR}/src/*.h")
+    foreach(header ${ALL_HEADERS})
+        file(READ "${header}" header_content)
+        if(header_content MATCHES "Q_OBJECT")
+            file(RELATIVE_PATH rel_header "${CMAKE_SOURCE_DIR}" "${header}")
+            get_filename_component(name "${header}" NAME_WE)
+            get_filename_component(subdir "${header}" DIRECTORY)
+            file(RELATIVE_PATH rel_subdir "${CMAKE_SOURCE_DIR}/src" "${subdir}")
+            set(moc_out "${MOC_OUTPUT_DIR}/${rel_subdir}/moc_${name}.cpp")
+            get_filename_component(moc_dir "${moc_out}" DIRECTORY)
+            file(MAKE_DIRECTORY "${moc_dir}")
+            add_custom_command(
+                OUTPUT "${moc_out}"
+                COMMAND "${QT_HOST_MOC}" "${header}" -o "${moc_out}"
+                DEPENDS "${header}"
+                COMMENT "MOC ${rel_header}"
+            )
+            list(APPEND MOC_SOURCES "${moc_out}")
+        endif()
+    endforeach()
+
+    # Manually compile resources
+    foreach(qrc ${RESOURCES})
+        get_filename_component(name "${qrc}" NAME_WE)
+        set(rcc_out "${CMAKE_BINARY_DIR}/qrc_${name}.cpp")
+        add_custom_command(
+            OUTPUT "${rcc_out}"
+            COMMAND "${QT_HOST_RCC}" "${CMAKE_SOURCE_DIR}/${qrc}" -o "${rcc_out}"
+            DEPENDS "${CMAKE_SOURCE_DIR}/${qrc}"
+            COMMENT "RCC ${qrc}"
+        )
+        list(APPEND RCC_SOURCES "${rcc_out}")
+    endforeach()
+
+    # Add generated sources to the target
+    set(GENERATED_SOURCES ${MOC_SOURCES} ${RCC_SOURCES})
+else()
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTORCC ON)
+    set(CMAKE_AUTOUIC ON)
+    set(GENERATED_SOURCES "")
+endif()
 
 # Platform-specific settings
 if(WIN32)
@@ -106,12 +168,12 @@ set(RESOURCES
 )
 
 if(WIN32)
-    add_executable(${PROJECT_NAME} WIN32 ${SOURCES} ${HEADERS} ${RESOURCES} ${APP_ICON_RESOURCE_WINDOWS})
+    add_executable(${PROJECT_NAME} WIN32 ${SOURCES} ${HEADERS} ${RESOURCES} ${APP_ICON_RESOURCE_WINDOWS} ${GENERATED_SOURCES})
 elseif(APPLE)
-    add_executable(${PROJECT_NAME} MACOSX_BUNDLE ${SOURCES} ${HEADERS} ${RESOURCES} ${APP_ICON_RESOURCE_MACOS})
+    add_executable(${PROJECT_NAME} MACOSX_BUNDLE ${SOURCES} ${HEADERS} ${RESOURCES} ${APP_ICON_RESOURCE_MACOS} ${GENERATED_SOURCES})
     set_source_files_properties(${APP_ICON_RESOURCE_MACOS} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 else()
-    add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS} ${RESOURCES})
+    add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS} ${RESOURCES} ${GENERATED_SOURCES})
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

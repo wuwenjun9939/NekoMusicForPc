@@ -39,8 +39,8 @@ echo "Building..."
 cmake --build . -j"$(nproc)"
 
 # Get version from CMake
-VERSION=$(grep -oP 'set\(PROJECT_VERSION\s+\K[^)]+' ../CMakeLists.txt)
-SUFFIX=$(grep -oP 'set\(PROJECT_VERSION_SUFFIX\s+"?\K[^"]+' ../CMakeLists.txt | head -1)
+VERSION=$(grep -A1 "project(NekoMusic" ../CMakeLists.txt | grep -oP 'VERSION\s+\K[0-9.]+' | head -1)
+SUFFIX=""
 FULL_VERSION="${VERSION}${SUFFIX}"
 
 echo ""

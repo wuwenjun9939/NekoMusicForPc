@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Neko云音乐
+Comment=Neko Music Player
+Exec=/opt/Neko云音乐/NekoMusic
+Icon=nekomusic
+Terminal=false
+Categories=AudioVideo;Audio;Player;Qt;
