@@ -8,7 +8,8 @@ class PlaylistListItem : public QWidget {
     Q_OBJECT
 
 public:
-    explicit PlaylistListItem(int playlistId, const QString& name, int musicCount, const QString& coverUrl, QWidget *parent = nullptr);
+    enum Mode { UserPlaylist, FavoritePlaylist };
+    explicit PlaylistListItem(int playlistId, const QString& name, int musicCount, const QString& coverUrl, Mode mode = UserPlaylist, QWidget *parent = nullptr);
 
     int playlistId() const { return m_playlistId; }
     void setMusicCount(int count);
@@ -18,6 +19,7 @@ signals:
     void renameRequested(int playlistId);
     void editDescriptionRequested(int playlistId);
     void deleteRequested(int playlistId);
+    void unfavoriteRequested(int playlistId);
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;
@@ -31,6 +33,7 @@ private:
     QString m_name;
     int m_musicCount;
     bool m_hovered = false;
+    Mode m_mode = UserPlaylist;
     QLabel *m_coverLbl = nullptr;
     QLabel *m_nameLbl = nullptr;
     void setPlaceholderCover();

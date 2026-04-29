@@ -216,7 +216,7 @@ void Sidebar::refreshPlaylistList()
         m_playlistLayout->addWidget(empty);
     } else {
         for (const auto &pl : m_apiPlaylists) {
-            auto *item = new PlaylistListItem(pl.id, pl.name, pl.musicCount, pl.coverUrl, m_playlistContainer);
+            auto *item = new PlaylistListItem(pl.id, pl.name, pl.musicCount, pl.coverUrl, PlaylistListItem::UserPlaylist, m_playlistContainer);
             connect(item, &PlaylistListItem::clicked, this, [this, playlistId = pl.id]() {
                 emit playlistClicked(playlistId);
             });
@@ -358,8 +358,23 @@ void Sidebar::refreshFavPlaylistList()
         m_favPlaylistLayout->addWidget(empty);
     } else {
         for (const auto &pl : m_favPlaylists) {
-            auto *item = new PlaylistListItem(pl.id, pl.name, pl.musicCount, pl.coverUrl, m_favPlaylistContainer);
+            auto *item = new PlaylistListItem(pl.id, pl.name, pl.musicCount, pl.coverUrl, PlaylistListItem::FavoritePlaylist, m_favPlaylistContainer);
             connect(item, &PlaylistListItem::clicked, this, [this, playlistId = pl.id]() { emit playlistClicked(playlistId); });
+            connect(item, &PlaylistListItem::unfavoriteRequested, this, [this, playlistId = pl.id]() {
+                if (!m_apiClient) return;
+                m_apiClient->unfavoritePlaylist(playlistId, [this, playlistId](bool success, const QString &) {
+                    if (success) {
+                        // 从缓存中移除
+                        for (int i = 0; i < m_favPlaylists.size(); ++i) {
+                            if (m_favPlaylists[i].id == playlistId) {
+                                m_favPlaylists.removeAt(i);
+                                break;
+                            }
+                        }
+                        refreshFavPlaylistList();
+                    }
+                });
+            });
             m_favPlaylistLayout->addWidget(item);
             m_favPlaylistItems.append(item);
         }

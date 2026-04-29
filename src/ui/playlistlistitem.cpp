@@ -1,4 +1,5 @@
 #include "ui/playlistlistitem.h"
+#include "core/i18n.h"
 
 #include <QMouseEvent>
 #include <QPainter>
@@ -8,8 +9,8 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 
-PlaylistListItem::PlaylistListItem(int playlistId, const QString& name, int musicCount, const QString& coverUrl, QWidget *parent)
-    : QWidget(parent), m_playlistId(playlistId), m_name(name), m_musicCount(musicCount)
+PlaylistListItem::PlaylistListItem(int playlistId, const QString& name, int musicCount, const QString& coverUrl, Mode mode, QWidget *parent)
+    : QWidget(parent), m_playlistId(playlistId), m_name(name), m_musicCount(musicCount), m_mode(mode)
 {
     setCursor(Qt::PointingHandCursor);
     setFixedHeight(56);  // padding 10+36+10 = 56
@@ -87,17 +88,26 @@ void PlaylistListItem::contextMenuEvent(QContextMenuEvent *event) {
         "QMenu::item:selected { background-color: rgba(255, 255, 255, 0.1); }"
     );
 
-    QAction *renameAction = menu.addAction(QStringLiteral("重命名"));
-    QAction *editDescAction = menu.addAction(QStringLiteral("修改描述"));
-    QAction *deleteAction = menu.addAction(QStringLiteral("删除"));
+    if (m_mode == UserPlaylist) {
+        QAction *renameAction = menu.addAction(QStringLiteral("重命名"));
+        QAction *editDescAction = menu.addAction(QStringLiteral("修改描述"));
+        QAction *deleteAction = menu.addAction(QStringLiteral("删除"));
 
-    QAction *selected = menu.exec(event->globalPos());
-    if (selected == renameAction) {
-        emit renameRequested(m_playlistId);
-    } else if (selected == editDescAction) {
-        emit editDescriptionRequested(m_playlistId);
-    } else if (selected == deleteAction) {
-        emit deleteRequested(m_playlistId);
+        QAction *selected = menu.exec(event->globalPos());
+        if (selected == renameAction) {
+            emit renameRequested(m_playlistId);
+        } else if (selected == editDescAction) {
+            emit editDescriptionRequested(m_playlistId);
+        } else if (selected == deleteAction) {
+            emit deleteRequested(m_playlistId);
+        }
+    } else {
+        // Favorite playlist: only unfavorite
+        QAction *unfavAction = menu.addAction(I18n::instance().tr("uncollectPlaylist"));
+        QAction *selected = menu.exec(event->globalPos());
+        if (selected == unfavAction) {
+            emit unfavoriteRequested(m_playlistId);
+        }
     }
 }
 
