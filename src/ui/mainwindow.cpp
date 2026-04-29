@@ -218,14 +218,10 @@ void MainWindow::setupUi()
     connect(m_settingsPage, &SettingsPage::languageChanged, m_playerBar, &PlayerBar::retranslate);
     connect(m_settingsPage, &SettingsPage::languageChanged, m_playerPage, &PlayerPage::retranslate);
 
-    // 音乐下载器连接
-    connect(m_downloader, &MusicDownloader::bufferReady, this, [this](const QString &localPath) {
-        qDebug() << "[音乐加载] 缓冲30%就绪，开始播放:" << localPath;
-        m_playerBar->setLoading(false);
-        m_engine->play(QUrl::fromLocalFile(localPath));
-    });
+    // 音乐加载器连接 — 使用 QMediaPlayer 直接播放网络 URL，由播放器管理缓冲
     connect(m_downloader, &MusicDownloader::downloadFinished, this, [this](const QString &localPath) {
-        qDebug() << "[音乐加载] 下载完成:" << localPath;
+        qDebug() << "[音乐加载] 缓存完成:" << localPath;
+        m_playerBar->setLoading(false);
     });
     connect(m_downloader, &MusicDownloader::downloadError, this, [this](const QString &err) {
         qDebug() << "[音乐加载] 下载失败:" << err;
@@ -233,6 +229,13 @@ void MainWindow::setupUi()
     });
     connect(m_downloader, &MusicDownloader::downloadProgress, this, [this](int percent) {
         if (percent >= 0) qDebug() << "[音乐加载] 下载进度:" << percent << "%";
+    });
+
+    // QMediaPlayer 缓冲状态监控
+    connect(m_engine, &PlayerEngine::stateChanged, this, [this](PlayerEngine::PlaybackState state) {
+        if (state == PlayerEngine::Playing) {
+            m_playerBar->setLoading(false);
+        }
     });
 
     // 记录最近播放
@@ -567,7 +570,6 @@ void MainWindow::playNext()
     if (manager.count() == 0) return;
 
     m_engine->stop();
-    m_downloader->cancel();
 
     int nextIdx = manager.nextIndex();
     manager.setCurrentIndex(nextIdx);
@@ -582,9 +584,10 @@ void MainWindow::playNext()
     m_playerPage->loadLyrics(info.id);
     m_engine->setCurrentMusic(info);
 
+    // Directly play network URL — QMediaPlayer handles buffering internally
     QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
-    qDebug() << "[音乐加载] 开始下载:" << url.toString();
-    m_downloader->download(url);
+    qDebug() << "[音乐加载] 开始播放网络流:" << url.toString();
+    m_engine->play(url);
 }
 
 void MainWindow::playPrevious()
@@ -593,7 +596,6 @@ void MainWindow::playPrevious()
     if (manager.count() == 0) return;
 
     m_engine->stop();
-    m_downloader->cancel();
 
     int prevIdx = manager.previousIndex();
     manager.setCurrentIndex(prevIdx);
@@ -608,9 +610,10 @@ void MainWindow::playPrevious()
     m_playerPage->loadLyrics(info.id);
     m_engine->setCurrentMusic(info);
 
+    // Directly play network URL
     QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
-    qDebug() << "[音乐加载] 开始下载:" << url.toString();
-    m_downloader->download(url);
+    qDebug() << "[音乐加载] 开始播放网络流:" << url.toString();
+    m_engine->play(url);
 }
 
 void MainWindow::playMusicById(int musicId, const QString &title, const QString &artist, const QString &coverUrl)
@@ -658,11 +661,11 @@ void MainWindow::playMusicById(int musicId, const QString &title, const QString 
     // Set current music info for recent play tracking
     m_engine->setCurrentMusic(mInfo);
 
-    // Build music URL and start buffered download
+    // Directly play network URL
     QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(musicId));
-    qDebug() << "[音乐加载] 开始下载:" << url.toString();
+    qDebug() << "[音乐加载] 开始播放网络流:" << url.toString();
     m_playerBar->setLoading(true);
-    m_downloader->download(url);
+    m_engine->play(url);
 }
 
 void MainWindow::resizeEvent(QResizeEvent *event)
