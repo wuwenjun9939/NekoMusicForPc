@@ -329,7 +329,6 @@ void PlayerBar::setLoading(bool loading)
             m_playBtn->setIcon(QIcon());
             m_playBtn->setToolTip(I18n::instance().tr("loading"));
         }
-        if (m_playModeBtn) m_playModeBtn->setVisible(false);
         QTimer *timer = new QTimer(this);
         timer->setObjectName("loadingTimer");
         timer->setInterval(30);
@@ -344,7 +343,6 @@ void PlayerBar::setLoading(bool loading)
             timer->stop();
             timer->deleteLater();
         }
-        if (m_playModeBtn) m_playModeBtn->setVisible(true);
         updateState();
     }
 }
