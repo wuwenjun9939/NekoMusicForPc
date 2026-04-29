@@ -55,6 +55,8 @@ if [ -z "$QT_WIN_ROOT" ] || [ ! -d "$QT_WIN_ROOT" ]; then
     exit 1
 fi
 
+# Convert to absolute path
+QT_WIN_ROOT="$(cd "$QT_WIN_ROOT" && pwd)"
 echo "Using Qt6 for Windows: $QT_WIN_ROOT"
 
 # Linux Qt6 for host tools (moc, uic, rcc)
