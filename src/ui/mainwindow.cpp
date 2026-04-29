@@ -557,10 +557,24 @@ void MainWindow::playNext()
     auto& manager = PlaylistManager::instance();
     if (manager.count() == 0) return;
 
+    // Stop current playback immediately
+    m_engine->stop();
+    m_downloader->cancel();
+
     int nextIdx = manager.nextIndex();
     manager.setCurrentIndex(nextIdx);
-    MusicInfo info = manager.playlist()[nextIdx];  // Copy by value to avoid use-after-free
-    playMusicById(info.id, info.title, info.artist, info.coverUrl);
+    const MusicInfo &info = manager.playlist()[nextIdx];
+
+    // Update UI immediately
+    m_playerBar->setSongInfo(info.title, info.artist, info.coverUrl);
+    m_playerBar->setCurrentMusicId(info.id);
+    m_playerPage->setMusicInfo(info.id, info.title, info.artist, QString(), info.coverUrl);
+    m_playerPage->loadLyrics(info.id);
+    m_engine->setCurrentMusic(info);
+
+    // Start downloading new song
+    QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
+    m_downloader->download(url);
 }
 
 void MainWindow::playPrevious()
@@ -568,10 +582,24 @@ void MainWindow::playPrevious()
     auto& manager = PlaylistManager::instance();
     if (manager.count() == 0) return;
 
+    // Stop current playback immediately
+    m_engine->stop();
+    m_downloader->cancel();
+
     int prevIdx = manager.previousIndex();
     manager.setCurrentIndex(prevIdx);
-    MusicInfo info = manager.playlist()[prevIdx];  // Copy by value to avoid use-after-free
-    playMusicById(info.id, info.title, info.artist, info.coverUrl);
+    const MusicInfo &info = manager.playlist()[prevIdx];
+
+    // Update UI immediately
+    m_playerBar->setSongInfo(info.title, info.artist, info.coverUrl);
+    m_playerBar->setCurrentMusicId(info.id);
+    m_playerPage->setMusicInfo(info.id, info.title, info.artist, QString(), info.coverUrl);
+    m_playerPage->loadLyrics(info.id);
+    m_engine->setCurrentMusic(info);
+
+    // Start downloading new song
+    QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
+    m_downloader->download(url);
 }
 
 void MainWindow::playMusicById(int musicId, const QString &title, const QString &artist, const QString &coverUrl)

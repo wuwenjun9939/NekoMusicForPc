@@ -10,29 +10,27 @@ MusicDownloader::MusicDownloader(QObject *parent) : QObject(parent) {}
 
 MusicDownloader::~MusicDownloader()
 {
+    cancel();
+}
+
+void MusicDownloader::cancel()
+{
     if (m_reply) {
         m_reply->disconnect();
         m_reply->abort();
+        m_reply->deleteLater();
+        m_reply = nullptr;
     }
     if (m_file && m_file->isOpen()) {
         m_file->close();
+        m_file->deleteLater();
+        m_file = nullptr;
     }
 }
 
 void MusicDownloader::download(const QUrl &url)
 {
-    if (m_reply) {
-        m_reply->disconnect();
-        m_reply->abort();
-    }
-    if (m_file && m_file->isOpen()) {
-        m_file->close();
-    }
-    if (m_file) {
-        m_file->deleteLater();
-    }
-    m_file = nullptr;
-    m_reply = nullptr;
+    cancel();
 
     // Generate cache path from URL hash (no extension - FFmpeg detects format from content)
     QString hash = QCryptographicHash::hash(url.toEncoded(), QCryptographicHash::Md5).toHex();
