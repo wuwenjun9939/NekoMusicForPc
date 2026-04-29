@@ -110,6 +110,24 @@ void Sidebar::setupUi()
     });
     lay->addWidget(m_createPlaylistBtn);
 
+    // 收藏歌单分隔线
+    auto *favDiv = new QWidget(container);
+    favDiv->setObjectName("sbDivider");
+    favDiv->setFixedHeight(1);
+    lay->addWidget(favDiv);
+
+    // 收藏歌单标题
+    auto *favHeader = new QLabel(I18n::instance().tr("favoritePlaylistsTitle"), container);
+    favHeader->setObjectName("sbPlaylistTitle");
+    lay->addWidget(favHeader);
+
+    // 收藏歌单容器
+    m_favPlaylistContainer = new QWidget(container);
+    m_favPlaylistLayout = new QVBoxLayout(m_favPlaylistContainer);
+    m_favPlaylistLayout->setContentsMargins(4, 0, 4, 0);
+    m_favPlaylistLayout->setSpacing(2);
+    lay->addWidget(m_favPlaylistContainer);
+
     lay->addStretch();
 
     scroll->setWidget(container);
@@ -129,7 +147,9 @@ void Sidebar::loadPlaylists()
     if (!m_apiClient || !UserManager::instance().isLoggedIn()) {
         // Not logged in or no API client, clear the list
         m_apiPlaylists.clear();
+        m_favPlaylists.clear();
         refreshPlaylistList();
+        refreshFavPlaylistList();
         return;
     }
 
@@ -173,6 +193,7 @@ void Sidebar::loadPlaylists()
             qDebug() << "[歌单] 加载失败";
         }
         refreshPlaylistList();
+        loadFavPlaylists();
     });
 }
 
@@ -284,6 +305,67 @@ void Sidebar::refreshPlaylistList()
     }
 }
 
+void Sidebar::loadFavPlaylists()
+{
+    if (!m_apiClient || !UserManager::instance().isLoggedIn()) {
+        m_favPlaylists.clear();
+        refreshFavPlaylistList();
+        return;
+    }
+
+    m_apiClient->fetchFavoritePlaylists([this](bool success, const QList<QVariantMap> &playlists) {
+        if (success) {
+            m_favPlaylists.clear();
+            for (const auto &pl : playlists) {
+                ApiPlaylistInfo info;
+                info.id = pl.value("id").toInt();
+                info.name = pl.value("name").toString();
+                info.description = pl.value("description").toString();
+                info.musicCount = pl.value("musicCount").toInt();
+                m_favPlaylists.append(info);
+            }
+            for (int i = 0; i < m_favPlaylists.size(); ++i) {
+                int playlistId = m_favPlaylists[i].id;
+                m_apiClient->fetchPlaylistMusic(playlistId, [this, playlistId](bool ok, int total, const QList<QVariantMap> &musicList) {
+                    int firstMusicId = 0;
+                    if (ok && !musicList.isEmpty()) firstMusicId = musicList.first().value("id").toInt();
+                    QString coverUrl = QString::fromUtf8("%1/api/music/cover/%2").arg(Theme::kApiBase).arg(firstMusicId);
+                    for (auto &info : m_favPlaylists) {
+                        if (info.id == playlistId) { info.coverUrl = coverUrl; break; }
+                    }
+                    refreshFavPlaylistList();
+                });
+            }
+        } else {
+            m_favPlaylists.clear();
+        }
+        refreshFavPlaylistList();
+    });
+}
+
+void Sidebar::refreshFavPlaylistList()
+{
+    for (auto *item : m_favPlaylistItems) {
+        if (item) { m_favPlaylistLayout->removeWidget(item); item->deleteLater(); }
+    }
+    m_favPlaylistItems.clear();
+
+    if (m_favPlaylists.isEmpty()) {
+        auto *empty = new QLabel(I18n::instance().tr("noPlaylists"), m_favPlaylistContainer);
+        empty->setObjectName("sbEmptyPlaylist");
+        empty->setAlignment(Qt::AlignCenter);
+        empty->setWordWrap(true);
+        m_favPlaylistLayout->addWidget(empty);
+    } else {
+        for (const auto &pl : m_favPlaylists) {
+            auto *item = new PlaylistListItem(pl.id, pl.name, pl.musicCount, pl.coverUrl, m_favPlaylistContainer);
+            connect(item, &PlaylistListItem::clicked, this, [this, playlistId = pl.id]() { emit playlistClicked(playlistId); });
+            m_favPlaylistLayout->addWidget(item);
+            m_favPlaylistItems.append(item);
+        }
+    }
+}
+
 QPushButton *Sidebar::createNavItem(const QString &key, const QString &label, const QIcon &icon)
 {
     auto *btn = new QPushButton(label, this);
@@ -322,8 +404,9 @@ void Sidebar::retranslate()
     if (m_recBtn) m_recBtn->setText(I18n::instance().tr("recentPlay"));
     if (m_uploadBtn) m_uploadBtn->setText(I18n::instance().tr("uploadMusic"));
 
-    auto *plHeader = findChild<QLabel *>("sbPlaylistTitle");
-    if (plHeader) plHeader->setText(I18n::instance().tr("myPlaylistsTitle"));
+    auto headers = findChildren<QLabel *>("sbPlaylistTitle");
+    if (headers.size() >= 1) headers[0]->setText(I18n::instance().tr("myPlaylistsTitle"));
+    if (headers.size() >= 2) headers[1]->setText(I18n::instance().tr("favoritePlaylistsTitle"));
 
     if (m_createPlaylistBtn) m_createPlaylistBtn->setText(I18n::instance().tr("createPlaylist"));
 }

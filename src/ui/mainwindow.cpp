@@ -19,6 +19,7 @@
 #include "ui/uploadpage.h"
 #include "ui/playerpage.h"
 #include "ui/playlistdetailpage.h"
+#include "ui/searchpage.h"
 #include "ui/addtoplaylistdialog.h"
 #include "ui/playlistpanel.h"
 #include "ui/toast.h"
@@ -122,6 +123,7 @@ void MainWindow::setupUi()
     m_latestMusicPage = new MusicListPage(MusicListPage::Latest, this);
     m_uploadPage = new UploadPage(this);
     m_playlistDetailPage = new PlaylistDetailPage(m_apiClient, this);
+    m_searchPage = new SearchPage(m_apiClient, this);
     m_stack->addWidget(m_homePage);
     m_stack->addWidget(m_settingsPage);
     m_stack->addWidget(m_favoritesPage);
@@ -130,6 +132,7 @@ void MainWindow::setupUi()
     m_stack->addWidget(m_latestMusicPage);
     m_stack->addWidget(m_uploadPage);
     m_stack->addWidget(m_playlistDetailPage);
+    m_stack->addWidget(m_searchPage);
     midH->addWidget(m_stack, 1);
 
     mainV->addWidget(m_midWidget, 1);
@@ -188,6 +191,7 @@ void MainWindow::setupUi()
             switchPage(m_recentPage);
         }
         else if (key == "upload") switchPage(m_uploadPage);
+        else if (key == "search") switchPage(m_searchPage);
     });
     connect(m_favoritesPage, &FavoritesPage::playRequested, this, &MainWindow::playMusicById);
     connect(&UserManager::instance(), &UserManager::loginStateChanged, this, [this]() {
@@ -268,11 +272,19 @@ void MainWindow::setupUi()
         switchPage(m_homePage);
     });
 
-    // 搜索请求（SearchPage 待实现）
-    // connect(m_titleBar, &TitleBar::searchRequested, this, [this](const QString &query) {
-    //     m_searchPage->search(query);
-    //     switchPage(m_searchPage);
-    // });
+    // 搜索请求
+    connect(m_titleBar, &TitleBar::searchRequested, this, [this](const QString &query) {
+        m_searchPage->search(query);
+        switchPage(m_searchPage);
+    });
+
+    // 搜索页面返回
+    connect(m_searchPage, &SearchPage::backRequested, this, [this]() {
+        switchPage(m_homePage);
+    });
+    connect(m_searchPage, &SearchPage::playMusic, this, [this](const MusicInfo &info) {
+        playMusicById(info.id, info.title, info.artist, info.coverUrl);
+    });
     // 上传页面返回
     connect(m_uploadPage, &UploadPage::backRequested, this, [this]() {
         switchPage(m_homePage);

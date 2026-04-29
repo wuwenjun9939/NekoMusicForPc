@@ -30,6 +30,7 @@ class QMenu;
 class PlaylistDetailPage;
 class AddToPlaylistDialog;
 class PlaylistPanel;
+class SearchPage;
 class ApiClient;
 class UpdateChecker;
 class UpdateDialog;
@@ -89,6 +90,7 @@ private:
     UploadPage *m_uploadPage = nullptr;
     PlayerPage *m_playerPage = nullptr;
     PlaylistDetailPage *m_playlistDetailPage = nullptr;
+    SearchPage *m_searchPage = nullptr;
     PlaylistPanel *m_playlistPanel = nullptr;
     PlayerBar *m_playerBar = nullptr;
     QWidget *m_midWidget = nullptr;
