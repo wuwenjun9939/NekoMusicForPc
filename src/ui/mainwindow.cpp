@@ -569,25 +569,27 @@ void MainWindow::playNext()
     auto& manager = PlaylistManager::instance();
     if (manager.count() == 0) return;
 
-    m_engine->stop();
-
     int nextIdx = manager.nextIndex();
-    manager.setCurrentIndex(nextIdx);
-    const MusicInfo &info = manager.playlist()[nextIdx];
+    const MusicInfo info = manager.playlist()[nextIdx];
 
     qDebug() << "[切歌] 下一曲:" << info.title << "-" << info.artist << "(ID:" << info.id << ")";
 
-    m_playerBar->setSongInfo(info.title, info.artist, info.coverUrl);
-    m_playerBar->setCurrentMusicId(info.id);
-    m_playerBar->setLoading(true);
-    m_playerPage->setMusicInfo(info.id, info.title, info.artist, QString(), info.coverUrl);
-    m_playerPage->loadLyrics(info.id);
-    m_engine->setCurrentMusic(info);
+    m_engine->stop();
+    manager.setCurrentIndex(nextIdx);
 
-    // Directly play network URL — QMediaPlayer handles buffering internally
-    QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
-    qDebug() << "[音乐加载] 开始播放网络流:" << url.toString();
-    m_engine->play(url);
+    // Defer play to next event loop iteration so QMediaPlayer fully releases previous stream
+    QTimer::singleShot(0, this, [this, info]() {
+        m_playerBar->setSongInfo(info.title, info.artist, info.coverUrl);
+        m_playerBar->setCurrentMusicId(info.id);
+        m_playerBar->setLoading(true);
+        m_playerPage->setMusicInfo(info.id, info.title, info.artist, QString(), info.coverUrl);
+        m_playerPage->loadLyrics(info.id);
+        m_engine->setCurrentMusic(info);
+
+        QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
+        qDebug() << "[音乐加载] 开始播放网络流:" << url.toString();
+        m_engine->play(url);
+    });
 }
 
 void MainWindow::playPrevious()
@@ -595,25 +597,27 @@ void MainWindow::playPrevious()
     auto& manager = PlaylistManager::instance();
     if (manager.count() == 0) return;
 
-    m_engine->stop();
-
     int prevIdx = manager.previousIndex();
-    manager.setCurrentIndex(prevIdx);
-    const MusicInfo &info = manager.playlist()[prevIdx];
+    const MusicInfo info = manager.playlist()[prevIdx];
 
     qDebug() << "[切歌] 上一曲:" << info.title << "-" << info.artist << "(ID:" << info.id << ")";
 
-    m_playerBar->setSongInfo(info.title, info.artist, info.coverUrl);
-    m_playerBar->setCurrentMusicId(info.id);
-    m_playerBar->setLoading(true);
-    m_playerPage->setMusicInfo(info.id, info.title, info.artist, QString(), info.coverUrl);
-    m_playerPage->loadLyrics(info.id);
-    m_engine->setCurrentMusic(info);
+    m_engine->stop();
+    manager.setCurrentIndex(prevIdx);
 
-    // Directly play network URL
-    QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
-    qDebug() << "[音乐加载] 开始播放网络流:" << url.toString();
-    m_engine->play(url);
+    // Defer play to next event loop iteration
+    QTimer::singleShot(0, this, [this, info]() {
+        m_playerBar->setSongInfo(info.title, info.artist, info.coverUrl);
+        m_playerBar->setCurrentMusicId(info.id);
+        m_playerBar->setLoading(true);
+        m_playerPage->setMusicInfo(info.id, info.title, info.artist, QString(), info.coverUrl);
+        m_playerPage->loadLyrics(info.id);
+        m_engine->setCurrentMusic(info);
+
+        QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
+        qDebug() << "[音乐加载] 开始播放网络流:" << url.toString();
+        m_engine->play(url);
+    });
 }
 
 void MainWindow::playMusicById(int musicId, const QString &title, const QString &artist, const QString &coverUrl)
