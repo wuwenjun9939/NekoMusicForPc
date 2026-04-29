@@ -24,6 +24,7 @@
 #include <QDebug>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QTimer>
 
 namespace {
 const QColor kCtrlNormal = QColor(245, 240, 255, 180);
@@ -305,6 +306,35 @@ void PlayerBar::setFavoriteStatus(bool isFavorited)
     }
 }
 
+void PlayerBar::setLoading(bool loading)
+{
+    if (m_isLoading == loading) return;
+    m_isLoading = loading;
+    m_loadingAngle = 0;
+
+    if (loading) {
+        if (m_playBtn) {
+            m_playBtn->setIcon(QIcon());
+            m_playBtn->setToolTip(I18n::instance().tr("loading"));
+        }
+        QTimer *timer = new QTimer(this);
+        timer->setObjectName("loadingTimer");
+        timer->setInterval(30);
+        connect(timer, &QTimer::timeout, this, [this, timer]() {
+            if (!m_isLoading) { timer->stop(); return; }
+            m_loadingAngle = (m_loadingAngle + 12) % 360;
+            update();
+        });
+        timer->start();
+    } else {
+        if (QTimer *timer = findChild<QTimer *>("loadingTimer")) {
+            timer->stop();
+            timer->deleteLater();
+        }
+        updateState();
+    }
+}
+
 void PlayerBar::setCoverPixmap(const QPixmap &pm)
 {
     auto *btn = qobject_cast<QPushButton *>(m_cover);
@@ -357,4 +387,23 @@ void PlayerBar::paintEvent(QPaintEvent *)
     line.setColorAt(1.0, QColor(196, 167, 231, 0));
     p.setPen(QPen(QBrush(line), 1));
     p.drawLine(rect().topLeft(), rect().topRight());
+
+    // Draw loading spinner on play button area
+    if (m_isLoading && m_playBtn) {
+        QRect btnRect = m_playBtn->geometry();
+        QPoint center = btnRect.center();
+        int radius = 14;
+
+        p.save();
+        p.translate(center);
+        p.rotate(m_loadingAngle);
+
+        QPen pen(QColor(196, 167, 231, 220), 2.5);
+        pen.setCapStyle(Qt::RoundCap);
+        p.setPen(pen);
+
+        // Draw arc (270 degrees, leaving a gap for spinner effect)
+        p.drawArc(-radius, -radius, radius * 2, radius * 2, 0, 270 * 16);
+        p.restore();
+    }
 }

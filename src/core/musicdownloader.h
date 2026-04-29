@@ -29,4 +29,5 @@ private:
     QNetworkReply *m_reply = nullptr;
     QFile *m_file = nullptr;
     QString m_tempPath;
+    bool m_bufferEmitted = false;
 };

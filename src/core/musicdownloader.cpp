@@ -31,6 +31,7 @@ void MusicDownloader::cancel()
 void MusicDownloader::download(const QUrl &url)
 {
     cancel();
+    m_bufferEmitted = false;
 
     // Generate cache path from URL hash (no extension - FFmpeg detects format from content)
     QString hash = QCryptographicHash::hash(url.toEncoded(), QCryptographicHash::Md5).toHex();
@@ -77,6 +78,15 @@ void MusicDownloader::onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal
     if (bytesTotal > 0) {
         int percent = static_cast<int>(bytesReceived * 100 / bytesTotal);
         emit downloadProgress(percent);
+
+        // Start playback at 30% buffered
+        if (!m_bufferEmitted && percent >= 30) {
+            m_bufferEmitted = true;
+            QString partPath = m_tempPath + ".part";
+            if (QFile::exists(partPath)) {
+                emit bufferReady(partPath);
+            }
+        }
     } else {
         emit downloadProgress(-1); // unknown
     }

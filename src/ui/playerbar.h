@@ -14,6 +14,7 @@ class PlayerEngine;
 class QSlider;
 class QPushButton;
 class QLabel;
+class QTimer;
 
 class PlayerBar : public QWidget
 {
@@ -34,6 +35,7 @@ public:
     void setCurrentMusicId(int musicId);
     int currentMusicId() const { return m_currentMusicId; }
     void setFavoriteStatus(bool isFavorited);
+    void setLoading(bool loading);
 
 protected:
     void paintEvent(QPaintEvent *) override;
@@ -56,4 +58,6 @@ private:
     QPushButton *m_cover = nullptr;
     int m_currentMusicId = 0;
     bool m_isFavorited = false;
+    bool m_isLoading = false;
+    int m_loadingAngle = 0;
 };

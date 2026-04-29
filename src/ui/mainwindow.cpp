@@ -167,10 +167,10 @@ void MainWindow::setupUi()
         bool isFavorited = checkIsFavorited(lastMusic.id);
         m_playerBar->setFavoriteStatus(isFavorited);
 
-        // 预加载音频文件：下载完成后自动播放然后立即暂停，这样音频源已加载，用户点播放即可
+        // 预加载音频文件：缓冲30%时开始播放然后立即暂停，等待用户操作
         QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(lastMusic.id));
         auto restoreConn = std::make_shared<QMetaObject::Connection>();
-        *restoreConn = connect(m_downloader, &MusicDownloader::downloadFinished, this, [this, restoreConn](const QString &localPath) {
+        *restoreConn = connect(m_downloader, &MusicDownloader::bufferReady, this, [this, restoreConn](const QString &localPath) {
             disconnect(*restoreConn);
             m_engine->play(QUrl::fromLocalFile(localPath));
             // 立即暂停，等待用户操作
@@ -219,11 +219,20 @@ void MainWindow::setupUi()
     connect(m_settingsPage, &SettingsPage::languageChanged, m_playerPage, &PlayerPage::retranslate);
 
     // 音乐下载器连接
-    connect(m_downloader, &MusicDownloader::downloadFinished, this, [this](const QString &localPath) {
+    connect(m_downloader, &MusicDownloader::bufferReady, this, [this](const QString &localPath) {
+        qDebug() << "[音乐加载] 缓冲30%就绪，开始播放:" << localPath;
+        m_playerBar->setLoading(false);
         m_engine->play(QUrl::fromLocalFile(localPath));
     });
-    connect(m_downloader, &MusicDownloader::downloadError, this, [](const QString &err) {
-        qDebug() << "Music download error:" << err;
+    connect(m_downloader, &MusicDownloader::downloadFinished, this, [this](const QString &localPath) {
+        qDebug() << "[音乐加载] 下载完成:" << localPath;
+    });
+    connect(m_downloader, &MusicDownloader::downloadError, this, [this](const QString &err) {
+        qDebug() << "[音乐加载] 下载失败:" << err;
+        m_playerBar->setLoading(false);
+    });
+    connect(m_downloader, &MusicDownloader::downloadProgress, this, [this](int percent) {
+        if (percent >= 0) qDebug() << "[音乐加载] 下载进度:" << percent << "%";
     });
 
     // 记录最近播放
@@ -557,7 +566,6 @@ void MainWindow::playNext()
     auto& manager = PlaylistManager::instance();
     if (manager.count() == 0) return;
 
-    // Stop current playback immediately
     m_engine->stop();
     m_downloader->cancel();
 
@@ -565,15 +573,17 @@ void MainWindow::playNext()
     manager.setCurrentIndex(nextIdx);
     const MusicInfo &info = manager.playlist()[nextIdx];
 
-    // Update UI immediately
+    qDebug() << "[切歌] 下一曲:" << info.title << "-" << info.artist << "(ID:" << info.id << ")";
+
     m_playerBar->setSongInfo(info.title, info.artist, info.coverUrl);
     m_playerBar->setCurrentMusicId(info.id);
+    m_playerBar->setLoading(true);
     m_playerPage->setMusicInfo(info.id, info.title, info.artist, QString(), info.coverUrl);
     m_playerPage->loadLyrics(info.id);
     m_engine->setCurrentMusic(info);
 
-    // Start downloading new song
     QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
+    qDebug() << "[音乐加载] 开始下载:" << url.toString();
     m_downloader->download(url);
 }
 
@@ -582,7 +592,6 @@ void MainWindow::playPrevious()
     auto& manager = PlaylistManager::instance();
     if (manager.count() == 0) return;
 
-    // Stop current playback immediately
     m_engine->stop();
     m_downloader->cancel();
 
@@ -590,21 +599,25 @@ void MainWindow::playPrevious()
     manager.setCurrentIndex(prevIdx);
     const MusicInfo &info = manager.playlist()[prevIdx];
 
-    // Update UI immediately
+    qDebug() << "[切歌] 上一曲:" << info.title << "-" << info.artist << "(ID:" << info.id << ")";
+
     m_playerBar->setSongInfo(info.title, info.artist, info.coverUrl);
     m_playerBar->setCurrentMusicId(info.id);
+    m_playerBar->setLoading(true);
     m_playerPage->setMusicInfo(info.id, info.title, info.artist, QString(), info.coverUrl);
     m_playerPage->loadLyrics(info.id);
     m_engine->setCurrentMusic(info);
 
-    // Start downloading new song
     QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
+    qDebug() << "[音乐加载] 开始下载:" << url.toString();
     m_downloader->download(url);
 }
 
 void MainWindow::playMusicById(int musicId, const QString &title, const QString &artist, const QString &coverUrl)
 {
     if (musicId <= 0) return;
+
+    qDebug() << "[音乐加载] 播放音乐:" << title << "-" << artist << "(ID:" << musicId << ")";
 
     // 自动添加到播放队列（去重）
     MusicInfo mInfo;
@@ -647,6 +660,8 @@ void MainWindow::playMusicById(int musicId, const QString &title, const QString 
 
     // Build music URL and start buffered download
     QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(musicId));
+    qDebug() << "[音乐加载] 开始下载:" << url.toString();
+    m_playerBar->setLoading(true);
     m_downloader->download(url);
 }
 
