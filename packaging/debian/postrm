@@ -1,0 +1,17 @@
+#!/bin/bash
+# Post-removal script for Neko云音乐
+set -e
+
+# Remove desktop symlink if still exists
+if [ -L "/usr/local/bin/nekomusic" ]; then
+    rm -f /usr/local/bin/nekomusic
+fi
+
+# Update desktop database and icon cache
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database -q /usr/share/applications || true
+fi
+
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -q /usr/share/icons/hicolor || true
+fi

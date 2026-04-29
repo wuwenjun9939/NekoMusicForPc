@@ -212,6 +212,16 @@ if(LINUX)
         DESTINATION share/applications
     )
     
+    # Symlink in /usr/local/bin for terminal access
+    install(CODE "
+        file(MAKE_DIRECTORY \"\$ENV{DESTDIR}/usr/local/bin\")
+        execute_process(
+            COMMAND \${CMAKE_COMMAND} -E create_symlink
+            \"/opt/Neko云音乐/NekoMusic\"
+            \"\$ENV{DESTDIR}/usr/local/bin/nekomusic\"
+        )
+    ")
+    
     # Icon theme (hicolor)
     install(DIRECTORY "${CMAKE_SOURCE_DIR}/packaging/icons/hicolor/"
         DESTINATION share/icons/hicolor
@@ -247,6 +257,7 @@ if(LINUX)
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt6core6, libqt6gui6, libqt6widgets6, libqt6multimedia6, libqt6network6, libqt6sql6")
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
     set(CPACK_DEBIAN_PACKAGE_POSTINST "${CMAKE_SOURCE_DIR}/packaging/debian/postinst")
+    set(CPACK_DEBIAN_PACKAGE_POSTRM "${CMAKE_SOURCE_DIR}/packaging/debian/postrm")
     
     # Output filename format matching version.json URL pattern
     set(CPACK_PACKAGE_FILE_NAME "Neko云音乐-${CPACK_PACKAGE_VERSION}-linux-amd64")
