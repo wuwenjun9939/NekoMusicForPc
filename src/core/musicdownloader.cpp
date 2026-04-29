@@ -21,18 +21,20 @@ MusicDownloader::~MusicDownloader()
 
 void MusicDownloader::download(const QUrl &url)
 {
+    // Clean up previous download
     if (m_reply) {
         m_reply->disconnect();
         m_reply->abort();
-    }
-    if (m_file && m_file->isOpen()) {
-        m_file->close();
+        m_reply->deleteLater();
+        m_reply = nullptr;
     }
     if (m_file) {
+        if (m_file->isOpen()) {
+            m_file->close();
+        }
         m_file->deleteLater();
+        m_file = nullptr;
     }
-    m_file = nullptr;
-    m_reply = nullptr;
 
     // Generate cache path from URL hash (no extension - FFmpeg detects format from content)
     QString hash = QCryptographicHash::hash(url.toEncoded(), QCryptographicHash::Md5).toHex();
@@ -88,17 +90,18 @@ void MusicDownloader::onReplyFinished()
 {
     if (!m_reply) return;
 
-    if (m_reply->error() != QNetworkReply::NoError) {
-        emit downloadError(m_reply->errorString());
-        m_reply->disconnect();
-        m_reply->deleteLater();
-        m_reply = nullptr;
+    QNetworkReply *reply = m_reply;
+    m_reply = nullptr;
+
+    if (reply->error() != QNetworkReply::NoError) {
+        emit downloadError(reply->errorString());
+        reply->deleteLater();
         return;
     }
 
     // Write remaining data
     if (m_file && m_file->isOpen()) {
-        m_file->write(m_reply->readAll());
+        m_file->write(reply->readAll());
         m_file->close();
     }
 
@@ -110,9 +113,7 @@ void MusicDownloader::onReplyFinished()
 
     emit downloadFinished(m_tempPath);
 
-    m_reply->disconnect();
-    m_reply->deleteLater();
-    m_reply = nullptr;
+    reply->deleteLater();
     if (m_file) {
         m_file->deleteLater();
         m_file = nullptr;
