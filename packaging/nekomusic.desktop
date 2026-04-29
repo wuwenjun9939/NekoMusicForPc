@@ -1,8 +1,43 @@
 [Desktop Entry]
+# --- 基础身份 ---
 Type=Application
+Version=1.5
 Name=Neko云音乐
-Comment=Neko Music Player
-Exec=/opt/Neko云音乐/NekoMusic
+Name[en]=Neko Music
+GenericName=梦幻网络出品的免费无损云音乐平台
+GenericName[en]=Free Lossless Cloud Music Platform by Fantasy Network
+Comment=高品质无损音乐播放器 (Qt6 + C++)
+Comment[en]=High-quality Lossless Music Player
+
+# --- 执行与路径 ---
+# 使用 %U 可以支持在文件管理器里右键点击音乐文件并用 Neko 打开
+Exec=/opt/Neko云音乐/NekoMusic %U
 Icon=nekomusic
 Terminal=false
-Categories=AudioVideo;Audio;Player;Qt;
+StartupNotify=true
+StartupWMClass=NekoMusic
+
+# --- 分类与检索 ---
+# 增加更多专业标签，方便在应用商店和聚合搜索中被搜到
+Categories=AudioVideo;Audio;Player;Qt;Music;
+Keywords=Music;Player;Neko;Flac;Lossless;
+MimeType=audio/flac;audio/mpeg;audio/ogg;audio/x-wav;
+
+# --- 高大上的特性：右键快捷菜单 (Desktop Actions) ---
+# 这会让用户在图标上点右键时，直接出现功能菜单喵！
+Actions=PlayPause;Next;Previous;
+
+[DesktopAction PlayPause]
+Name=播放/暂停
+Name[en]=Play/Pause
+Exec=/opt/Neko云音乐/NekoMusic --toggle-play
+
+[DesktopAction Next]
+Name=下一首
+Name[en]=Next Track
+Exec=/opt/Neko云音乐/NekoMusic --next
+
+[DesktopAction Previous]
+Name=上一首
+Name[en]=Previous Track
+Exec=/opt/Neko云音乐/NekoMusic --previous

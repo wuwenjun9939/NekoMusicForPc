@@ -198,8 +198,6 @@ void ApiClient::searchMusic(const QString &query, int page, int pageSize, MusicS
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     QJsonObject body;
     body["query"] = query;
-    body["page"] = page;
-    body["pageSize"] = pageSize;
     auto *reply = m_nam.post(req, QJsonDocument(body).toJson());
     connect(reply, &QNetworkReply::finished, this, [reply, cb, query]() {
         reply->deleteLater();
@@ -215,12 +213,23 @@ void ApiClient::searchMusic(const QString &query, int page, int pageSize, MusicS
         QList<QVariantMap> results;
         int total = 0, currentPage = 0, currentPageSize = 0;
         if (ok) {
-            auto data = doc.object().value("data").toObject();
-            total = data.value("total").toInt();
-            currentPage = data.value("page").toInt();
-            currentPageSize = data.value("pageSize").toInt();
-            for (const auto &v : data.value("results").toArray()) {
-                results.append(v.toObject().toVariantMap());
+            auto obj = doc.object();
+            // Support both formats: with or without "data" wrapper
+            if (obj.contains("data")) {
+                auto data = obj.value("data").toObject();
+                total = data.value("total").toInt();
+                currentPage = data.value("page").toInt();
+                currentPageSize = data.value("pageSize").toInt();
+                for (const auto &v : data.value("results").toArray()) {
+                    results.append(v.toObject().toVariantMap());
+                }
+            } else {
+                total = obj.value("total").toInt();
+                currentPage = 1;
+                currentPageSize = obj.value("results").toArray().size();
+                for (const auto &v : obj.value("results").toArray()) {
+                    results.append(v.toObject().toVariantMap());
+                }
             }
             qDebug() << "[搜索API]搜索:" << query << "，HTTP状态码:" << statusCode << "，成功，找到" << total << "个结果";
         } else {

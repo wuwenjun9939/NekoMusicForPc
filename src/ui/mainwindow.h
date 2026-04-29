@@ -30,6 +30,7 @@ class QMenu;
 class PlaylistDetailPage;
 class AddToPlaylistDialog;
 class PlaylistPanel;
+class SearchPage;
 class ApiClient;
 class UpdateChecker;
 class UpdateDialog;
@@ -78,6 +79,7 @@ private:
 private:
     bool checkIsFavorited(int musicId);
     void loadFavoritesCache();
+    void disconnectDownloader();
 
     bool m_switching = false;
     TitleBar *m_titleBar = nullptr;
@@ -105,4 +107,10 @@ private:
     UpdateChecker *m_updateChecker = nullptr;
     UpdateDialog *m_updateDialog = nullptr;
     DesktopLrc *m_desktopLrc = nullptr;
+
+    // Downloader signal connections (for buffered streaming)
+    QMetaObject::Connection m_bufferConn;
+    QMetaObject::Connection m_progressConn;
+    QMetaObject::Connection m_finishedConn;
+    QMetaObject::Connection m_errorConn;
 };

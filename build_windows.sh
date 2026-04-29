@@ -55,6 +55,8 @@ if [ -z "$QT_WIN_ROOT" ] || [ ! -d "$QT_WIN_ROOT" ]; then
     exit 1
 fi
 
+# Convert to absolute path
+QT_WIN_ROOT="$(cd "$QT_WIN_ROOT" && pwd)"
 echo "Using Qt6 for Windows: $QT_WIN_ROOT"
 
 # Linux Qt6 for host tools (moc, uic, rcc)
@@ -212,7 +214,7 @@ if [ $NSIS_EXIT -ne 0 ]; then
 fi
 
 # The installer is output to the parent of packaging/, i.e. project root
-EXE_FILE="$SCRIPT_DIR/Neko云音乐-INSTALLER-win-x64.exe"
+EXE_FILE="$SCRIPT_DIR/Neko云音乐-${FULL_VERSION}-win.exe"
 
 if [ -f "$EXE_FILE" ]; then
     OUTPUT_DIR="$SCRIPT_DIR/dist"

@@ -50,6 +50,8 @@ private:
     void setupUi();
     QPushButton *createNavItem(const QString &key, const QString &label, const QIcon &icon);
     void refreshPlaylistList();
+    void loadFavPlaylists();
+    void refreshFavPlaylistList();
 
     ApiClient *m_apiClient = nullptr;
     QList<ApiPlaylistInfo> m_apiPlaylists;
@@ -58,9 +60,16 @@ private:
     QPushButton *m_favBtn = nullptr;
     QPushButton *m_recBtn = nullptr;
     QPushButton *m_uploadBtn = nullptr;
+    QPushButton *m_searchBtn = nullptr;
 
     QWidget *m_playlistContainer = nullptr;
     QVBoxLayout *m_playlistLayout = nullptr;
     QList<PlaylistListItem *> m_playlistItems;
     QPushButton *m_createPlaylistBtn = nullptr;
+
+    // 收藏的歌单区域
+    QWidget *m_favPlaylistContainer = nullptr;
+    QVBoxLayout *m_favPlaylistLayout = nullptr;
+    QList<PlaylistListItem *> m_favPlaylistItems;
+    QList<ApiPlaylistInfo> m_favPlaylists;
 };

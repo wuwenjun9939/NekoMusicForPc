@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(NekoMusic
-    VERSION 2026.417.0
+    VERSION 2026.429.13
     LANGUAGES CXX
 )
 
@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Qt6
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia Network SvgWidgets Sql)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia Network SvgWidgets Sql Concurrent)
 
 # For cross-compilation, disable AUTOMOC/AUTOUIC/AUTORCC and handle manually
 # because Qt6 CMake hardcodes Windows .exe paths for moc/uic/rcc
@@ -163,6 +163,7 @@ set(HEADERS
     src/ui/addtoplaylistdialog.h
     src/ui/playlistpanel.h
     src/ui/updatedialog.h
+    src/ui/searchpage.h
 )
 
 # Resources
@@ -187,6 +188,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Network
     Qt6::SvgWidgets
     Qt6::Sql
+    Qt6::Concurrent
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -211,6 +213,16 @@ if(LINUX)
     install(FILES "${CMAKE_SOURCE_DIR}/packaging/nekomusic.desktop"
         DESTINATION share/applications
     )
+    
+    # Symlink in /usr/local/bin for terminal access
+    install(CODE "
+        file(MAKE_DIRECTORY \"\$ENV{DESTDIR}/usr/local/bin\")
+        execute_process(
+            COMMAND \${CMAKE_COMMAND} -E create_symlink
+            \"/opt/Neko云音乐/NekoMusic\"
+            \"\$ENV{DESTDIR}/usr/local/bin/nekomusic\"
+        )
+    ")
     
     # Icon theme (hicolor)
     install(DIRECTORY "${CMAKE_SOURCE_DIR}/packaging/icons/hicolor/"
@@ -247,6 +259,7 @@ if(LINUX)
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt6core6, libqt6gui6, libqt6widgets6, libqt6multimedia6, libqt6network6, libqt6sql6")
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
     set(CPACK_DEBIAN_PACKAGE_POSTINST "${CMAKE_SOURCE_DIR}/packaging/debian/postinst")
+    set(CPACK_DEBIAN_PACKAGE_POSTRM "${CMAKE_SOURCE_DIR}/packaging/debian/postrm")
     
     # Output filename format matching version.json URL pattern
     set(CPACK_PACKAGE_FILE_NAME "Neko云音乐-${CPACK_PACKAGE_VERSION}-linux-amd64")
@@ -254,6 +267,10 @@ if(LINUX)
 elseif(WIN32)
     # Windows uses NSIS (external script, not CPack)
     # CPack not used for Windows - build_windows.ps1 handles NSIS directly
+
+elseif(APPLE)
+    set(CPACK_GENERATOR "productbuild")
+    set(CPACK_PACKAGE_FILE_NAME "Neko云音乐-${CPACK_PACKAGE_VERSION}-macos-${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
 include(CPack)

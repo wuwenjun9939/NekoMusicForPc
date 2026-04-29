@@ -10,31 +10,29 @@ MusicDownloader::MusicDownloader(QObject *parent) : QObject(parent) {}
 
 MusicDownloader::~MusicDownloader()
 {
-    if (m_reply) {
-        m_reply->disconnect();
-        m_reply->abort();
-    }
-    if (m_file && m_file->isOpen()) {
-        m_file->close();
-    }
+    cancel();
 }
 
-void MusicDownloader::download(const QUrl &url)
+void MusicDownloader::cancel()
 {
-    // Clean up previous download
     if (m_reply) {
         m_reply->disconnect();
         m_reply->abort();
         m_reply->deleteLater();
         m_reply = nullptr;
     }
-    if (m_file) {
-        if (m_file->isOpen()) {
-            m_file->close();
-        }
+    if (m_file && m_file->isOpen()) {
+        m_file->close();
         m_file->deleteLater();
         m_file = nullptr;
     }
+}
+
+void MusicDownloader::download(const QUrl &url)
+{
+    cancel();
+    m_bufferEmitted = false;
+>>>>>>> b20aaa31a7e78314859895338bb2e69cf8f0fac2
 
     // Generate cache path from URL hash (no extension - FFmpeg detects format from content)
     QString hash = QCryptographicHash::hash(url.toEncoded(), QCryptographicHash::Md5).toHex();
@@ -78,11 +76,16 @@ void MusicDownloader::onReadyRead()
 
 void MusicDownloader::onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
 {
-    if (bytesTotal > 0) {
-        int percent = static_cast<int>(bytesReceived * 100 / bytesTotal);
-        emit downloadProgress(percent);
-    } else {
-        emit downloadProgress(-1); // unknown
+    m_bytesReceived = bytesReceived;
+    m_bytesTotal = bytesTotal;
+    emit downloadProgress(bytesReceived, bytesTotal);
+
+    if (bytesTotal > 0 && !m_bufferEmitted && (bytesReceived * 100 / bytesTotal) >= 30) {
+        m_bufferEmitted = true;
+        QString partPath = m_tempPath + ".part";
+        if (QFile::exists(partPath)) {
+            emit bufferReady(partPath);
+        }
     }
 }
 

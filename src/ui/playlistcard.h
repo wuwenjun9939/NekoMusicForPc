@@ -11,6 +11,7 @@
 #include <QWidget>
 #include <QLabel>
 #include <QPixmap>
+#include <QMetaObject>
 
 struct PlaylistInfo {
     int id = -1;
@@ -45,4 +46,5 @@ private:
     QLabel *m_name       = nullptr;
     QPixmap m_coverPixmap;
     bool m_hovered       = false;
+    QMetaObject::Connection m_coverConn;
 };

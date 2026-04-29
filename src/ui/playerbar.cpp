@@ -25,6 +25,7 @@
 #include <QDebug>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QTimer>
 
 namespace {
 const QColor kCtrlNormal = QColor(245, 240, 255, 180);
@@ -147,18 +148,16 @@ void PlayerBar::setupUi()
     });
     ctrlL->addWidget(nextBtn);
 
-    // 播放模式切换按钮
-    auto *modeBtn = new QPushButton(this);
-    modeBtn->setObjectName("pbCtrlBtn");
-    modeBtn->setFixedSize(32, 32);
-    modeBtn->setIcon(Icons::icon(Icons::kShuffle, 20, kCtrlNormal, kCtrlActive));
-    modeBtn->setCursor(Qt::PointingHandCursor);
-    modeBtn->setToolTip(I18n::instance().tr("playModeList"));
-    connect(modeBtn, &QPushButton::clicked, this, [this]() {
-        PlaylistManager::instance().togglePlayMode();
-        updatePlayModeIcon();
+    m_playModeBtn = new QPushButton(this);
+    m_playModeBtn->setObjectName("pbPlayModeBtn");
+    m_playModeBtn->setFixedSize(32, 32);
+    m_playModeBtn->setIcon(QIcon(":/icons/icon_list_loop.png"));
+    m_playModeBtn->setCursor(Qt::PointingHandCursor);
+    m_playModeBtn->setToolTip(I18n::instance().tr("playModeList"));
+    connect(m_playModeBtn, &QPushButton::clicked, this, [this]() {
+        emit playModeClicked();
     });
-    ctrlL->addWidget(modeBtn);
+    ctrlL->addWidget(m_playModeBtn);
 
     cl->addLayout(ctrlL);
 
@@ -259,54 +258,22 @@ void PlayerBar::retranslate()
     if (m_artist && (m_artist->text() == "--" || m_artist->text() == I18n::instance().tr("unknown")))
         m_artist->setText(I18n::instance().tr("unknown"));
 
-    // Update tooltips by objectName
-    auto *prevBtn = findChild<QPushButton *>("pbCtrlBtn", Qt::FindDirectChildrenOnly);
-    if (prevBtn) prevBtn->setToolTip(I18n::instance().tr("previous"));
-
     if (m_playBtn) {
         bool playing = m_engine && m_engine->playbackState() == PlayerEngine::Playing;
         m_playBtn->setToolTip(playing ? I18n::instance().tr("pause") : I18n::instance().tr("play"));
     }
 
-    auto *nextBtn = findChild<QPushButton *>("pbCtrlBtn", Qt::FindChildrenRecursively);
-    // find all pbCtrlBtn buttons and set appropriate tooltips
+    // Update prev/next tooltips by finding buttons in order
     auto btns = findChildren<QPushButton *>();
     int ctrlCount = 0;
     for (auto *btn : btns) {
         if (btn->objectName() == "pbCtrlBtn") {
             if (ctrlCount == 0) btn->setToolTip(I18n::instance().tr("previous"));
             else if (ctrlCount == 1) btn->setToolTip(I18n::instance().tr("next"));
-            else if (ctrlCount == 2) {
-                // 更新播放模式按钮的提示
-                updatePlayModeIcon();
-            }
             ctrlCount++;
         }
     }
 }
-
-void PlayerBar::updatePlayModeIcon()
-{
-    auto btns = findChildren<QPushButton *>();
-    int ctrlCount = 0;
-    for (auto *btn : btns) {
-        if (btn->objectName() == "pbCtrlBtn") {
-            if (ctrlCount == 2) {
-                QString mode = PlaylistManager::instance().playMode();
-                QString tooltip;
-                if (mode == "list") {
-                    tooltip = I18n::instance().tr("playModeList");
-                } else if (mode == "single") {
-                    tooltip = I18n::instance().tr("playModeSingle");
-                } else if (mode == "random") {
-                    tooltip = I18n::instance().tr("playModeRandom");
-                }
-                btn->setToolTip(tooltip);
-                break;
-            }
-            ctrlCount++;
-        }
-    }
 }
 
 void PlayerBar::setSongInfo(const QString &title, const QString &artist, const QString &coverUrl)
@@ -343,6 +310,35 @@ void PlayerBar::setFavoriteStatus(bool isFavorited)
     if (m_heartBtn) {
         m_heartBtn->setIcon(QIcon(isFavorited ? ":/icons/heart_red.png" : ":/icons/heart_gray.png"));
         m_heartBtn->setToolTip(isFavorited ? I18n::instance().tr("removeFromFavorites") : I18n::instance().tr("addToFavorites"));
+    }
+}
+
+void PlayerBar::setLoading(bool loading)
+{
+    if (m_isLoading == loading) return;
+    m_isLoading = loading;
+    m_loadingAngle = 0;
+
+    if (loading) {
+        if (m_playBtn) {
+            m_playBtn->setIcon(QIcon());
+            m_playBtn->setToolTip(I18n::instance().tr("loading"));
+        }
+        QTimer *timer = new QTimer(this);
+        timer->setObjectName("loadingTimer");
+        timer->setInterval(30);
+        connect(timer, &QTimer::timeout, this, [this, timer]() {
+            if (!m_isLoading) { timer->stop(); return; }
+            m_loadingAngle = (m_loadingAngle + 12) % 360;
+            update();
+        });
+        timer->start();
+    } else {
+        if (QTimer *timer = findChild<QTimer *>("loadingTimer")) {
+            timer->stop();
+            timer->deleteLater();
+        }
+        updateState();
     }
 }
 
@@ -384,6 +380,21 @@ void PlayerBar::updateState()
     m_playBtn->setToolTip(playing ? I18n::instance().tr("pause") : I18n::instance().tr("play"));
 }
 
+void PlayerBar::updatePlayModeBtn(const QString &mode)
+{
+    if (!m_playModeBtn) return;
+    if (mode == "single") {
+        m_playModeBtn->setIcon(QIcon(":/icons/icon_single_loop.png"));
+        m_playModeBtn->setToolTip(I18n::instance().tr("playModeSingle"));
+    } else if (mode == "random") {
+        m_playModeBtn->setIcon(QIcon(":/icons/icon_shuffle.png"));
+        m_playModeBtn->setToolTip(I18n::instance().tr("playModeRandom"));
+    } else {
+        m_playModeBtn->setIcon(QIcon(":/icons/icon_list_loop.png"));
+        m_playModeBtn->setToolTip(I18n::instance().tr("playModeList"));
+    }
+}
+
 void PlayerBar::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
@@ -398,4 +409,23 @@ void PlayerBar::paintEvent(QPaintEvent *)
     line.setColorAt(1.0, QColor(196, 167, 231, 0));
     p.setPen(QPen(QBrush(line), 1));
     p.drawLine(rect().topLeft(), rect().topRight());
+
+    // Draw loading spinner on play button area
+    if (m_isLoading && m_playBtn) {
+        QRect btnRect = m_playBtn->geometry();
+        QPoint center = btnRect.center();
+        int radius = 14;
+
+        p.save();
+        p.translate(center);
+        p.rotate(m_loadingAngle);
+
+        QPen pen(QColor(196, 167, 231, 220), 2.5);
+        pen.setCapStyle(Qt::RoundCap);
+        p.setPen(pen);
+
+        // Draw arc (270 degrees, leaving a gap for spinner effect)
+        p.drawArc(-radius, -radius, radius * 2, radius * 2, 0, 270 * 16);
+        p.restore();
+    }
 }

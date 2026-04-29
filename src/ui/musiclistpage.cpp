@@ -124,10 +124,13 @@ private:
         QString musicId = QString::number(m_musicId);
         QPixmap cached = CoverCache::instance()->get(musicId);
         if (!cached.isNull()) {
+            disconnect(m_coverConn);
+            m_coverConn = {};
             applyPixmap(cached);
             return;
         }
-        connect(CoverCache::instance(), &CoverCache::coverLoaded, this,
+        disconnect(m_coverConn);
+        m_coverConn = connect(CoverCache::instance(), &CoverCache::coverLoaded, this,
                 [this, musicId](const QString &id, const QPixmap &pix) {
             if (id == musicId) applyPixmap(pix);
         });
@@ -150,9 +153,11 @@ private:
 
     void applyPixmap(const QPixmap &pix)
     {
+        disconnect(m_coverConn);
+        m_coverConn = {};
         int s = qMin(pix.width(), pix.height());
         QPixmap scaled = pix.copy((pix.width()-s)/2, (pix.height()-s)/2, s, s)
-            .scaled(54, 54, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+            .scaled(54, 54, Qt::KeepAspectRatioByExpanding, Qt::FastTransformation);
         m_coverLbl->setPixmap(scaled);
     }
 
@@ -161,6 +166,7 @@ private:
     QLabel *m_coverLbl = nullptr;
     QLabel *m_titleLbl = nullptr;
     QLabel *m_artistLbl = nullptr;
+    QMetaObject::Connection m_coverConn;
 };
 
 // ─── MusicListPage ──────────────────────────────────────
@@ -332,7 +338,18 @@ void MusicListPage::buildList()
         return;
     }
 
-    for (const auto &info : m_musicList) {
+    m_buildIndex = 0;
+    m_buildingList = true;
+    buildListBatch();
+}
+
+void MusicListPage::buildListBatch()
+{
+    const int batchSize = 25;
+    int end = qMin(m_buildIndex + batchSize, m_musicList.size());
+
+    for (int i = m_buildIndex; i < end; ++i) {
+        const auto &info = m_musicList[i];
         auto *card = new MusicItemCard(info, m_listContainer);
         card->onClicked = [this, info](int) {
             emit playMusic(info);
@@ -346,7 +363,14 @@ void MusicListPage::buildList()
         m_listLayout->addWidget(card);
     }
 
-    m_listLayout->addStretch();
+    m_buildIndex = end;
+
+    if (m_buildIndex < m_musicList.size()) {
+        QTimer::singleShot(0, this, &MusicListPage::buildListBatch);
+    } else {
+        m_buildingList = false;
+        m_listLayout->addStretch();
+    }
 }
 
 void MusicListPage::retranslate()
