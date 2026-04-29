@@ -26,6 +26,7 @@ signals:
     void previousClicked();
     void nextClicked();
     void favoriteClicked(int musicId);
+    void playModeClicked();
 
 public:
     explicit PlayerBar(PlayerEngine *engine, QWidget *parent = nullptr);
@@ -36,6 +37,7 @@ public:
     int currentMusicId() const { return m_currentMusicId; }
     void setFavoriteStatus(bool isFavorited);
     void setLoading(bool loading);
+    void updatePlayModeBtn(const QString &mode);
 
 protected:
     void paintEvent(QPaintEvent *) override;
@@ -48,6 +50,7 @@ private:
 
     PlayerEngine *m_engine = nullptr;
     QPushButton *m_playBtn = nullptr;
+    QPushButton *m_playModeBtn = nullptr;
     QPushButton *m_heartBtn = nullptr;
     QSlider *m_progress = nullptr;
     QSlider *m_volume = nullptr;

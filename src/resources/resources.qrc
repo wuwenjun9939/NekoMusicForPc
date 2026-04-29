@@ -19,6 +19,9 @@
         <file>icons/nav_settings_active.png</file>
         <file>icons/nav_music.png</file>
         <file>icons/nav_music_active.png</file>
+        <file>icons/icon_shuffle.png</file>
+        <file>icons/icon_list_loop.png</file>
+        <file>icons/icon_single_loop.png</file>
         <file>style.qss</file>
     </qresource>
 </RCC>

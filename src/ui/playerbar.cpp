@@ -147,6 +147,17 @@ void PlayerBar::setupUi()
     });
     ctrlL->addWidget(nextBtn);
 
+    m_playModeBtn = new QPushButton(this);
+    m_playModeBtn->setObjectName("pbPlayModeBtn");
+    m_playModeBtn->setFixedSize(32, 32);
+    m_playModeBtn->setIcon(QIcon(":/icons/icon_list_loop.png"));
+    m_playModeBtn->setCursor(Qt::PointingHandCursor);
+    m_playModeBtn->setToolTip(I18n::instance().tr("playModeList"));
+    connect(m_playModeBtn, &QPushButton::clicked, this, [this]() {
+        emit playModeClicked();
+    });
+    ctrlL->addWidget(m_playModeBtn);
+
     cl->addLayout(ctrlL);
 
     // 进度条
@@ -246,25 +257,26 @@ void PlayerBar::retranslate()
     if (m_artist && (m_artist->text() == "--" || m_artist->text() == I18n::instance().tr("unknown")))
         m_artist->setText(I18n::instance().tr("unknown"));
 
-    // Update tooltips by objectName
-    auto *prevBtn = findChild<QPushButton *>("pbCtrlBtn", Qt::FindDirectChildrenOnly);
-    if (prevBtn) prevBtn->setToolTip(I18n::instance().tr("previous"));
-
     if (m_playBtn) {
         bool playing = m_engine && m_engine->playbackState() == PlayerEngine::Playing;
         m_playBtn->setToolTip(playing ? I18n::instance().tr("pause") : I18n::instance().tr("play"));
     }
 
-    auto *nextBtn = findChild<QPushButton *>("pbCtrlBtn", Qt::FindChildrenRecursively);
-    // find all pbCtrlBtn buttons and set appropriate tooltips
+    // Update prev/next tooltips by finding buttons in order
     auto btns = findChildren<QPushButton *>();
     int ctrlCount = 0;
     for (auto *btn : btns) {
         if (btn->objectName() == "pbCtrlBtn") {
             if (ctrlCount == 0) btn->setToolTip(I18n::instance().tr("previous"));
             else if (ctrlCount == 1) btn->setToolTip(I18n::instance().tr("next"));
-            else if (ctrlCount == 2) btn->setToolTip(I18n::instance().tr("playModeList"));
             ctrlCount++;
+        }
+    }
+
+    if (m_playModeBtn) {
+        // Re-read mode from engine if available, otherwise keep current
+        if (m_engine) {
+            // We'll refresh from PlaylistManager in mainwindow
         }
     }
 }
@@ -317,6 +329,7 @@ void PlayerBar::setLoading(bool loading)
             m_playBtn->setIcon(QIcon());
             m_playBtn->setToolTip(I18n::instance().tr("loading"));
         }
+        if (m_playModeBtn) m_playModeBtn->setVisible(false);
         QTimer *timer = new QTimer(this);
         timer->setObjectName("loadingTimer");
         timer->setInterval(30);
@@ -331,6 +344,7 @@ void PlayerBar::setLoading(bool loading)
             timer->stop();
             timer->deleteLater();
         }
+        if (m_playModeBtn) m_playModeBtn->setVisible(true);
         updateState();
     }
 }
@@ -371,6 +385,21 @@ void PlayerBar::updateState()
     bool playing = m_engine->playbackState() == PlayerEngine::Playing;
     m_playBtn->setIcon(Icons::render(playing ? Icons::kPause : Icons::kPlay, 24, kCtrlNormal));
     m_playBtn->setToolTip(playing ? I18n::instance().tr("pause") : I18n::instance().tr("play"));
+}
+
+void PlayerBar::updatePlayModeBtn(const QString &mode)
+{
+    if (!m_playModeBtn) return;
+    if (mode == "single") {
+        m_playModeBtn->setIcon(QIcon(":/icons/icon_single_loop.png"));
+        m_playModeBtn->setToolTip(I18n::instance().tr("playModeSingle"));
+    } else if (mode == "random") {
+        m_playModeBtn->setIcon(QIcon(":/icons/icon_shuffle.png"));
+        m_playModeBtn->setToolTip(I18n::instance().tr("playModeRandom"));
+    } else {
+        m_playModeBtn->setIcon(QIcon(":/icons/icon_list_loop.png"));
+        m_playModeBtn->setToolTip(I18n::instance().tr("playModeList"));
+    }
 }
 
 void PlayerBar::paintEvent(QPaintEvent *)

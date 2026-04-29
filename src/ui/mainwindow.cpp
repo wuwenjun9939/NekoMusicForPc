@@ -368,6 +368,15 @@ void MainWindow::setupUi()
     // 收藏按钮
     connect(m_playerBar, &PlayerBar::favoriteClicked, this, &MainWindow::toggleFavorite);
 
+    // 播放模式按钮
+    connect(m_playerBar, &PlayerBar::playModeClicked, this, [this]() {
+        PlaylistManager::instance().togglePlayMode();
+        m_playerBar->updatePlayModeBtn(PlaylistManager::instance().playMode());
+    });
+
+    // 初始化播放模式按钮状态
+    m_playerBar->updatePlayModeBtn(PlaylistManager::instance().playMode());
+
     // 播放页面返回
     connect(m_playerPage, &PlayerPage::backRequested, this, [this]() {
         auto *anim = new QPropertyAnimation(m_playerPage, "pos");
