@@ -122,6 +122,22 @@ void DesktopLrc::setCurrentSong(const QString &title, const QString &artist)
     update();
 }
 
+// 测试函数：模拟歌词滚动
+void DesktopLrc::testLyricScroll()
+{
+    // 创建测试歌词数据
+    m_lyricsMap.clear();
+    m_lyricsMap[0] = "第一句歌词";
+    m_lyricsMap[5000] = "第二句歌词";
+    m_lyricsMap[10000] = "第三句歌词";
+    m_lyricsMap[15000] = "第四句歌词";
+    m_lyricsMap[20000] = "第五句歌词";
+    
+    // 模拟播放进度
+    m_currentPosition = 0;
+    m_updateTimer->start(100); // 每100ms更新一次
+}
+
 QString DesktopLrc::getLyricAtTime(qint64 timeMs) const
 {
     if (m_lyricsMap.isEmpty()) {
@@ -130,12 +146,12 @@ QString DesktopLrc::getLyricAtTime(qint64 timeMs) const
     
     // 找到当前时间对应的歌词
     QString lyric;
-    qint64 lastTime = 0;
+    qint64 lyricTime = 0;
     
     for (auto it = m_lyricsMap.constBegin(); it != m_lyricsMap.constEnd(); ++it) {
         if (it.key() <= timeMs) {
             lyric = it.value();
-            lastTime = it.key();
+            lyricTime = it.key();
         } else {
             break;
         }
@@ -151,8 +167,8 @@ void DesktopLrc::updateLyricDisplay()
     QString lyric = getLyricAtTime(m_currentPosition);
     if (lyric != m_currentLyrics) {
         m_currentLyrics = lyric;
-        update();
     }
+    update(); // 总是更新，以支持歌词滚动动画
 }
 
 void DesktopLrc::showWindow()
@@ -187,14 +203,64 @@ void DesktopLrc::paintEvent(QPaintEvent *event)
     // 绘制半透明背景
     painter.fillRect(rect(), m_backgroundColor);
     
-    // 绘制歌词
-    painter.setPen(m_textColor);
+    // 获取当前歌词和下一句歌词
+    QString currentLyric = getLyricAtTime(m_currentPosition);
+    QString nextLyric = "";
+    
+    // 找到下一句歌词
+    qint64 nextTime = -1;
+    for (auto it = m_lyricsMap.constBegin(); it != m_lyricsMap.constEnd(); ++it) {
+        if (it.key() > m_currentPosition) {
+            nextLyric = it.value();
+            nextTime = it.key();
+            break;
+        }
+    }
+    
+    // 计算歌词滚动进度
+    float progress = 0.0f;
+    if (nextTime > 0) {
+        // 找到当前歌词的时间
+        qint64 currentTime = 0;
+        for (auto it = m_lyricsMap.constBegin(); it != m_lyricsMap.constEnd(); ++it) {
+            if (it.key() <= m_currentPosition && it.value() == currentLyric) {
+                currentTime = it.key();
+                break;
+            }
+        }
+        
+        if (currentTime > 0 && nextTime > currentTime) {
+            progress = static_cast<float>(m_currentPosition - currentTime) / 
+                      static_cast<float>(nextTime - currentTime);
+            progress = qBound(0.0f, progress, 1.0f);
+        }
+    }
+    
+    // 绘制当前歌词（高亮）
+    painter.setPen(QColor(255, 200, 0)); // 高亮颜色
     painter.setFont(m_font);
-    painter.drawText(rect(), Qt::AlignCenter, m_currentLyrics);
+    QRect lyricRect = rect();
+    lyricRect.setHeight(height() / 2);
+    painter.drawText(lyricRect, Qt::AlignCenter, currentLyric);
+    
+    // 绘制下一句歌词（半透明）
+    if (!nextLyric.isEmpty()) {
+        painter.setPen(QColor(255, 255, 255, 150)); // 半透明白色
+        QRect nextRect = rect();
+        nextRect.setTop(height() / 2);
+        painter.drawText(nextRect, Qt::AlignCenter, nextLyric);
+    }
+    
+    // 绘制进度条
+    if (progress > 0) {
+        int barWidth = width() * progress;
+        painter.fillRect(0, height() - 3, barWidth, 3, QColor(255, 200, 0, 200));
+    }
     
     // 绘制歌曲信息（如果歌词为空）
-    if (m_currentLyrics.isEmpty() || m_currentLyrics == tr("无可用歌词")) {
+    if (currentLyric.isEmpty() || currentLyric == tr("无可用歌词")) {
         QString songInfo = QString("%1 - %2").arg(m_currentSongTitle).arg(m_currentSongArtist);
+        painter.setPen(Qt::white);
         painter.setFont(QFont("Microsoft YaHei", 14, QFont::Normal));
         painter.drawText(rect(), Qt::AlignCenter | Qt::AlignBottom, songInfo);
     }

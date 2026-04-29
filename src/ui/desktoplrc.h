@@ -25,6 +25,7 @@ public slots:
     void showWindow();
     void hideWindow();
     void toggleWindow();
+    void testLyricScroll();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
