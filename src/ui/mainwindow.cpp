@@ -614,23 +614,51 @@ void MainWindow::playMusicFromPlaylist(int musicId)
 
 void MainWindow::playNext()
 {
+    qDebug() << "[MainWindow] playNext called";
     auto& manager = PlaylistManager::instance();
-    if (manager.count() == 0) return;
+    if (manager.count() == 0) {
+        qDebug() << "[MainWindow] Playlist is empty";
+        // 显示提示信息
+        Toast::show(this, tr("播放列表为空，请先添加歌曲"));
+        return;
+    }
 
     int nextIdx = manager.nextIndex();
+    qDebug() << "[MainWindow] Next index:" << nextIdx << ", current index:" << manager.currentIndex();
+    
+    if (nextIdx < 0 || nextIdx >= manager.count()) {
+        qDebug() << "[MainWindow] Invalid next index";
+        return;
+    }
+    
     manager.setCurrentIndex(nextIdx);
     MusicInfo info = manager.playlist()[nextIdx];  // Copy by value to avoid use-after-free
+    qDebug() << "[MainWindow] Playing next song:" << info.title << "by" << info.artist << "id:" << info.id;
     playMusicById(info.id, info.title, info.artist, info.coverUrl);
 }
 
 void MainWindow::playPrevious()
 {
+    qDebug() << "[MainWindow] playPrevious called";
     auto& manager = PlaylistManager::instance();
-    if (manager.count() == 0) return;
+    if (manager.count() == 0) {
+        qDebug() << "[MainWindow] Playlist is empty";
+        // 显示提示信息
+        Toast::show(this, tr("播放列表为空"));
+        return;
+    }
 
     int prevIdx = manager.previousIndex();
+    qDebug() << "[MainWindow] Previous index:" << prevIdx << ", current index:" << manager.currentIndex();
+    
+    if (prevIdx < 0 || prevIdx >= manager.count()) {
+        qDebug() << "[MainWindow] Invalid previous index";
+        return;
+    }
+    
     manager.setCurrentIndex(prevIdx);
     MusicInfo info = manager.playlist()[prevIdx];  // Copy by value to avoid use-after-free
+    qDebug() << "[MainWindow] Playing previous song:" << info.title << "by" << info.artist << "id:" << info.id;
     playMusicById(info.id, info.title, info.artist, info.coverUrl);
 }
 
