@@ -76,18 +76,19 @@ void PlaylistCard::loadCover()
             int s = qMin(cached.width(), cached.height());
             m_coverPixmap = cached.copy((cached.width()-s)/2, (cached.height()-s)/2, s, s)
                 .scaled(Theme::kCoverSmall, Theme::kCoverSmall,
-                        Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+                        Qt::KeepAspectRatioByExpanding, Qt::FastTransformation);
             update();
             return;
         }
 
-        connect(CoverCache::instance(), &CoverCache::coverLoaded, this,
+        disconnect(m_coverConn);
+        m_coverConn = connect(CoverCache::instance(), &CoverCache::coverLoaded, this,
                 [this, musicId](const QString &id, const QPixmap &pix) {
             if (id == musicId) {
                 int s = qMin(pix.width(), pix.height());
                 m_coverPixmap = pix.copy((pix.width()-s)/2, (pix.height()-s)/2, s, s)
                     .scaled(Theme::kCoverSmall, Theme::kCoverSmall,
-                            Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+                            Qt::KeepAspectRatioByExpanding, Qt::FastTransformation);
                 update();
             }
         });

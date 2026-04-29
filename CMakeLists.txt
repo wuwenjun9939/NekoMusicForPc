@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Qt6
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia Network SvgWidgets Sql)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia Network SvgWidgets Sql Concurrent)
 
 # For cross-compilation, disable AUTOMOC/AUTOUIC/AUTORCC and handle manually
 # because Qt6 CMake hardcodes Windows .exe paths for moc/uic/rcc
@@ -184,6 +184,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Network
     Qt6::SvgWidgets
     Qt6::Sql
+    Qt6::Concurrent
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

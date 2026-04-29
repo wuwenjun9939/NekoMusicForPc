@@ -31,6 +31,7 @@
 #include <QJsonArray>
 #include <QNetworkReply>
 #include <QUrlQuery>
+#include <QtConcurrent>
 
 // ─── 单曲封面标签（圆角 6px + 异步加载）─────────────────
 class CoverLabel : public QLabel
@@ -64,11 +65,14 @@ public:
 
         QPixmap cached = CoverCache::instance()->get(musicId);
         if (!cached.isNull()) {
+            disconnect(m_coverConn);
+            m_coverConn = {};
             applyPixmap(cached);
             return;
         }
 
-        connect(CoverCache::instance(), &CoverCache::coverLoaded, this,
+        disconnect(m_coverConn);
+        m_coverConn = connect(CoverCache::instance(), &CoverCache::coverLoaded, this,
                 [this, musicId](const QString &id, const QPixmap &pix) {
             if (id == musicId) applyPixmap(pix);
         });
@@ -89,14 +93,17 @@ protected:
 private:
     void applyPixmap(const QPixmap &pix)
     {
+        disconnect(m_coverConn);
+        m_coverConn = {};
         int s = qMin(pix.width(), pix.height());
         m_pixmap = pix.copy((pix.width()-s)/2, (pix.height()-s)/2, s, s)
-            .scaled(m_size, m_size, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+            .scaled(m_size, m_size, Qt::KeepAspectRatioByExpanding, Qt::FastTransformation);
         update();
     }
 
     QPixmap m_pixmap;
     int m_size;
+    QMetaObject::Connection m_coverConn;
 };
 
 // ─── 聚合卡片（热门/最新音乐）───────────────────────
@@ -301,11 +308,11 @@ void HomePage::fetchHotMusic()
 {
     QUrl url(QString::fromUtf8("%1/api/music/ranking").arg(Theme::kApiBase));
     QUrlQuery q;
-    q.addQueryItem(QStringLiteral("limit"), QStringLiteral("300"));
+    q.addQueryItem(QStringLiteral("limit"), QStringLiteral("10"));
     url.setQuery(q);
 
     QNetworkRequest req(url);
-    req.setTransferTimeout(5000); // 5s timeout
+    req.setTransferTimeout(5000);
     QNetworkReply *reply = m_nam.get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
@@ -314,29 +321,34 @@ void HomePage::fetchHotMusic()
             rebuildRecommendSection();
             return;
         }
-        auto doc = QJsonDocument::fromJson(reply->readAll());
-        if (!doc.object().value("success").toBool()) {
+        QByteArray rawData = reply->readAll();
+
+        QtConcurrent::run([rawData]() {
+            auto doc = QJsonDocument::fromJson(rawData);
+            if (!doc.object().value("success").toBool()) {
+                return QList<MusicInfo>();
+            }
+            QList<MusicInfo> result;
+            auto arr = doc.object().value("data").toArray();
+            result.reserve(arr.size());
+            for (int i = 0; i < arr.size(); ++i) {
+                auto obj = arr[i].toObject();
+                MusicInfo info;
+                info.id = obj.value("id").toInt();
+                info.title = obj.value("title").toString();
+                info.artist = obj.value("artist").toString();
+                info.album = obj.value("album").toString();
+                info.duration = obj.value("duration").toInt();
+                info.coverUrl = QString::fromUtf8("%1/api/music/cover/%2")
+                                    .arg(Theme::kApiBase).arg(info.id);
+                result.append(info);
+            }
+            return result;
+        }).then(this, [this](QList<MusicInfo> musicList) {
+            m_hotMusic = std::move(musicList);
             m_hotReady = true;
             rebuildRecommendSection();
-            return;
-        }
-
-        auto arr = doc.object().value("data").toArray();
-        m_hotMusic.clear();
-        for (int i = 0; i < arr.size(); ++i) {
-            auto obj = arr[i].toObject();
-            MusicInfo info;
-            info.id = obj.value("id").toInt();
-            info.title = obj.value("title").toString();
-            info.artist = obj.value("artist").toString();
-            info.album = obj.value("album").toString();
-            info.duration = obj.value("duration").toInt();
-            info.coverUrl = QString::fromUtf8("%1/api/music/cover/%2")
-                                .arg(Theme::kApiBase).arg(info.id);
-            m_hotMusic.append(info);
-        }
-        m_hotReady = true;
-        rebuildRecommendSection();
+        });
     });
 }
 
@@ -344,7 +356,7 @@ void HomePage::fetchPlaylists()
 {
     QNetworkRequest req(QUrl(QString::fromUtf8("%1/api/playlists/search").arg(Theme::kApiBase)));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    req.setTransferTimeout(5000); // 5s timeout
+    req.setTransferTimeout(5000);
     QNetworkReply *reply = m_nam.post(req, QByteArray("{\"query\":\"\"}"));
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
@@ -353,33 +365,38 @@ void HomePage::fetchPlaylists()
             rebuildRecommendSection();
             return;
         }
-        auto doc = QJsonDocument::fromJson(reply->readAll());
-        if (!doc.object().value("success").toBool()) {
+        QByteArray rawData = reply->readAll();
+
+        QtConcurrent::run([rawData]() {
+            auto doc = QJsonDocument::fromJson(rawData);
+            if (!doc.object().value("success").toBool()) {
+                return QList<PlaylistInfo>();
+            }
+            QList<PlaylistInfo> result;
+            auto arr = doc.object().value("results").toArray();
+            result.reserve(arr.size());
+            for (int i = 0; i < arr.size(); ++i) {
+                auto obj = arr[i].toObject();
+                PlaylistInfo info;
+                info.id = obj.value("id").toInt();
+                info.name = obj.value("name").toString();
+                info.description = obj.value("description").toString();
+                info.musicCount = obj.value("musicCount").toInt();
+                int firstId = obj.value("firstMusicId").toInt(0);
+                if (firstId > 0) {
+                    info.coverUrl = QString::fromUtf8("%1/api/music/cover/%2")
+                                        .arg(Theme::kApiBase).arg(firstId);
+                } else {
+                    info.coverUrl = QString::fromUtf8("%1/api/music/cover/1").arg(Theme::kApiBase);
+                }
+                result.append(info);
+            }
+            return result;
+        }).then(this, [this](QList<PlaylistInfo> list) {
+            m_playlists = std::move(list);
             m_playlistReady = true;
             rebuildRecommendSection();
-            return;
-        }
-
-        m_playlists.clear();
-        auto arr = doc.object().value("results").toArray();
-        for (int i = 0; i < arr.size(); ++i) {
-            auto obj = arr[i].toObject();
-            PlaylistInfo info;
-            info.id = obj.value("id").toInt();
-            info.name = obj.value("name").toString();
-            info.description = obj.value("description").toString();
-            info.musicCount = obj.value("musicCount").toInt();
-            int firstId = obj.value("firstMusicId").toInt(0);
-            if (firstId > 0) {
-                info.coverUrl = QString::fromUtf8("%1/api/music/cover/%2")
-                                    .arg(Theme::kApiBase).arg(firstId);
-            } else {
-                info.coverUrl = QString::fromUtf8("%1/api/music/cover/1").arg(Theme::kApiBase);
-            }
-            m_playlists.append(info);
-        }
-        m_playlistReady = true;
-        rebuildRecommendSection();
+        });
     });
 }
 
@@ -387,11 +404,11 @@ void HomePage::fetchLatestMusic()
 {
     QUrl url(QString::fromUtf8("%1/api/music/latest").arg(Theme::kApiBase));
     QUrlQuery q;
-    q.addQueryItem(QStringLiteral("limit"), QStringLiteral("300"));
+    q.addQueryItem(QStringLiteral("limit"), QStringLiteral("10"));
     url.setQuery(q);
 
     QNetworkRequest req(url);
-    req.setTransferTimeout(5000); // 5s timeout
+    req.setTransferTimeout(5000);
     QNetworkReply *reply = m_nam.get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
@@ -400,29 +417,34 @@ void HomePage::fetchLatestMusic()
             rebuildRecommendSection();
             return;
         }
-        auto doc = QJsonDocument::fromJson(reply->readAll());
-        if (!doc.object().value("success").toBool()) {
+        QByteArray rawData = reply->readAll();
+
+        QtConcurrent::run([rawData]() {
+            auto doc = QJsonDocument::fromJson(rawData);
+            if (!doc.object().value("success").toBool()) {
+                return QList<MusicInfo>();
+            }
+            QList<MusicInfo> result;
+            auto arr = doc.object().value("data").toArray();
+            result.reserve(arr.size());
+            for (int i = 0; i < arr.size(); ++i) {
+                auto obj = arr[i].toObject();
+                MusicInfo info;
+                info.id = obj.value("id").toInt();
+                info.title = obj.value("title").toString();
+                info.artist = obj.value("artist").toString();
+                info.album = obj.value("album").toString();
+                info.duration = obj.value("duration").toInt();
+                info.coverUrl = QString::fromUtf8("%1/api/music/cover/%2")
+                                    .arg(Theme::kApiBase).arg(info.id);
+                result.append(info);
+            }
+            return result;
+        }).then(this, [this](QList<MusicInfo> musicList) {
+            m_latestMusic = std::move(musicList);
             m_latestReady = true;
             rebuildRecommendSection();
-            return;
-        }
-
-        m_latestMusic.clear();
-        auto arr = doc.object().value("data").toArray();
-        for (int i = 0; i < arr.size(); ++i) {
-            auto obj = arr[i].toObject();
-            MusicInfo info;
-            info.id = obj.value("id").toInt();
-            info.title = obj.value("title").toString();
-            info.artist = obj.value("artist").toString();
-            info.album = obj.value("album").toString();
-            info.duration = obj.value("duration").toInt();
-            info.coverUrl = QString::fromUtf8("%1/api/music/cover/%2")
-                                .arg(Theme::kApiBase).arg(info.id);
-            m_latestMusic.append(info);
-        }
-        m_latestReady = true;
-        rebuildRecommendSection();
+        });
     });
 }
 
