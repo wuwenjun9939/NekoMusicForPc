@@ -181,6 +181,7 @@ static QMap<QString, QString> zhCN()
     m["uncollectPlaylist"] = QStringLiteral("取消收藏");
     m["removeFromPlaylist"] = QStringLiteral("从歌单中移除");
     m["addToPlaylist"] = QStringLiteral("添加到歌单");
+    m["addToQueue"] = QStringLiteral("添加到播放队列");
     m["addToPlaylistTitle"] = QStringLiteral("添加到歌单");
     m["selectPlaylist"] = QStringLiteral("选择歌单");
     m["orCreateNewPlaylist"] = QStringLiteral("或创建新歌单");
@@ -699,6 +700,7 @@ static QMap<QString, QString> enUS()
     m["uncollectPlaylist"] = "Uncollect";
     m["removeFromPlaylist"] = "Remove from Playlist";
     m["addToPlaylist"] = "Add to Playlist";
+    m["addToQueue"] = "Add to Queue";
     m["addToPlaylistTitle"] = "Add to Playlist";
     m["selectPlaylist"] = "Select Playlist";
     m["orCreateNewPlaylist"] = "Or create new playlist";

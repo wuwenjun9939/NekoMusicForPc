@@ -287,6 +287,18 @@ void MainWindow::setupUi()
     connect(m_searchPage, &SearchPage::playMusic, this, [this](const MusicInfo &info) {
         playMusicById(info.id, info.title, info.artist, info.coverUrl);
     });
+    connect(m_searchPage, &SearchPage::playAllRequested, this, [this](const QList<MusicInfo> &results) {
+        PlaylistManager::instance().clearPlaylist();
+        PlaylistManager::instance().addAllToPlaylist(results);
+        if (!results.isEmpty()) {
+            const auto &first = results.first();
+            playMusicById(first.id, first.title, first.artist, first.coverUrl);
+        }
+    });
+    connect(m_searchPage, &SearchPage::openPlaylist, this, [this](int playlistId) {
+        m_playlistDetailPage->loadPlaylist(playlistId);
+        switchPage(m_playlistDetailPage);
+    });
     // 上传页面返回
     connect(m_uploadPage, &UploadPage::backRequested, this, [this]() {
         switchPage(m_homePage);

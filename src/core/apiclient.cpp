@@ -198,8 +198,6 @@ void ApiClient::searchMusic(const QString &query, int page, int pageSize, MusicS
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     QJsonObject body;
     body["query"] = query;
-    body["page"] = page;
-    body["pageSize"] = pageSize;
     auto *reply = m_nam.post(req, QJsonDocument(body).toJson());
     connect(reply, &QNetworkReply::finished, this, [reply, cb, query]() {
         reply->deleteLater();
