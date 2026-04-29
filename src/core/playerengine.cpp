@@ -19,6 +19,12 @@ PlayerEngine::PlayerEngine(QObject *parent)
                 Q_UNUSED(error);
                 emit mediaError(errorString);
             });
+    connect(m_player, &QMediaPlayer::mediaStatusChanged,
+            this, [this](QMediaPlayer::MediaStatus status) {
+                if (status == QMediaPlayer::EndOfMedia) {
+                    emit playbackFinished();
+                }
+            });
 }
 
 PlayerEngine::~PlayerEngine() = default;

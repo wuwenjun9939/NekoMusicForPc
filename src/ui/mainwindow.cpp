@@ -239,6 +239,25 @@ void MainWindow::setupUi()
         m_playerBar->setLoading(false);
     });
 
+    // 播放完成自动切歌
+    connect(m_engine, &PlayerEngine::playbackFinished, this, [this]() {
+        auto& manager = PlaylistManager::instance();
+        if (manager.count() == 0) return;
+
+        const QString mode = manager.playMode();
+        qDebug() << "[播放完成] 当前模式:" << mode;
+
+        if (mode == "single") {
+            // 单曲循环：重新播放当前歌曲
+            qDebug() << "[单曲循环] 重新播放:" << manager.playlist()[manager.currentIndex()].title;
+        }
+        // 所有模式都调用 playNext()：
+        // - single: nextIndex() 返回相同索引，重新播放当前歌曲
+        // - list:   nextIndex() 返回下一首，列表循环
+        // - random: nextIndex() 返回随机不同索引，随机播放
+        playNext();
+    });
+
     // 头像点击 - 显示登录/登出菜单
     connect(m_titleBar, &TitleBar::avatarClicked, this, [this]() {
         if (UserManager::instance().isLoggedIn()) {

@@ -46,6 +46,7 @@ signals:
     void fadeComplete();
     void musicStarted(const MusicInfo& music);
     void mediaError(const QString &error);
+    void playbackFinished();
 
 private:
     void onMediaStateChanged(QMediaPlayer::PlaybackState state);
