@@ -1,4 +1,4 @@
-name: Build macOS PKG (robust)
+name: Build macOS PKG (robust, fixed upload)
 
 on:
   push:
@@ -39,7 +39,6 @@ jobs:
           echo "Looking for icon at: $SRC"
           if [ ! -f "$SRC" ]; then
             echo "WARN: source icon not found: $SRC"
-            # fallback to a system icon (should exist on macOS runners)
             FALLBACK_ICNS="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns"
             if [ -f "$FALLBACK_ICNS" ]; then
               echo "Using system fallback icon: $FALLBACK_ICNS"
@@ -50,17 +49,14 @@ jobs:
             fi
           fi
 
-          # generate icns only if we have a source
           if [ -n "$SRC" ]; then
             mkdir -p src/resources/macos
             ICONSET=$(mktemp -d)/AppIcon.iconset
             mkdir -p "$ICONSET"
             for size in 16 32 64 128 256 512; do
-              # sips can convert icns/png; produce base and @2x
               sips -z $size $size "$SRC" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null 2>&1 || true
               sips -z $((size*2)) $((size*2)) "$SRC" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null 2>&1 || true
             done
-            # create icns (iconutil returns non-zero if inputs are odd; ignore but check file)
             iconutil -c icns "$ICONSET" -o "$GITHUB_WORKSPACE/src/resources/macos/AppIcon.icns" >/dev/null 2>&1 || true
             echo "Generated icns at src/resources/macos/AppIcon.icns"
             ls -la src/resources/macos || true
@@ -101,13 +97,15 @@ jobs:
           echo "== find .app =="
           find "$INSTALL_PREFIX" -maxdepth 4 -type d -name "*.app" -print || true
 
-      - name: Package with pkgbuild (single .app -> .pkg)
+      - id: package_pkgbuild
+        name: Package with pkgbuild (single .app -> .pkg)
         run: |
           set -e
           BUILD_DIR="$GITHUB_WORKSPACE/build-macos"
           INSTALL_PREFIX="$BUILD_DIR/install"
           PKG_OUTDIR="$BUILD_DIR/pkg"
           mkdir -p "$PKG_OUTDIR"
+
           APP_DIR=$(find "$INSTALL_PREFIX" -type d -name "*.app" -print | head -n1 || true)
           if [ -z "$APP_DIR" ]; then
             echo "❌ No .app found in install prefix ($INSTALL_PREFIX). Install listing:"
@@ -115,48 +113,57 @@ jobs:
             exit 1
           fi
           echo "Found app to package: $APP_DIR"
-          # derive version if possible
+
           VERSION="0.0.0"
           if [ -f "$BUILD_DIR/CMakeCache.txt" ]; then
-            # try to parse PROJECT_VERSION from cache (fallback if not present)
             ver=$(grep -E "^PROJECT_VERSION:STATIC=" "$BUILD_DIR/CMakeCache.txt" | sed -E 's/.*=//')
             if [ -n "$ver" ]; then VERSION="$ver"; fi
           fi
+
           PKG_PATH="$PKG_OUTDIR/NekoMusic-${VERSION}.pkg"
           echo "Creating pkg: $PKG_PATH (installing to /Applications)"
           pkgbuild --component "$APP_DIR" --install-location "/Applications" \
             --identifier "com.nekomusic.app" --version "$VERSION" "$PKG_PATH"
+
           echo "== pkg created =="
           ls -lh "$PKG_PATH" || true
-          # expand pkg for inspection
+
+          # Expand to inspect contents
           TMPDIR=$(mktemp -d)
           pkgutil --expand "$PKG_PATH" "$TMPDIR/expanded" || echo "pkgutil expand failed"
           echo "Expanded package tree (top):"
           ls -la "$TMPDIR/expanded" || true
-          echo "PKG_PATH=$PKG_PATH"
+
+          # Export path for other steps
           echo "pkg_path=$PKG_PATH" >> $GITHUB_OUTPUT
           echo "pkg_name=$(basename "$PKG_PATH")" >> $GITHUB_OUTPUT
+          echo "PKG_PATH=$PKG_PATH" >> $GITHUB_ENV
 
-      - name: Show pkg info (redundant check)
+      - name: Show pkg info (sanity)
         run: |
           set -e
-          PKG="${{ steps.Package_with_pkgbuild.outputs.pkg_path || steps.Package_with_pkgbuild.outputs.pkg_path || '' }}"
-          # The above is placeholder; prefer reading via find to be safe
-          PKG=$(find "$GITHUB_WORKSPACE/build-macos" -name "*.pkg" -type f | head -n1 || true)
+          echo "Env PKG_PATH: $PKG_PATH"
+          PKG="${PKG_PATH:-$(find "$GITHUB_WORKSPACE/build-macos" -name '*.pkg' -type f | head -n1 || true)}"
+          echo "Resolved PKG: $PKG"
           if [ -z "$PKG" ]; then
-            echo "❌ No pkg found for upload"
+            echo "❌ No pkg found"
             ls -la "$GITHUB_WORKSPACE/build-macos" || true
             exit 1
           fi
-          echo "Preparing to upload: $PKG"
           ls -lh "$PKG"
           TMPDIR=$(mktemp -d)
           pkgutil --expand "$PKG" "$TMPDIR/expanded" || true
-          echo "Expanded listing:"
           find "$TMPDIR/expanded" -maxdepth 4 -print || true
 
       - name: Upload PKG artifact
+        if: env.PKG_PATH != ''
         uses: actions/upload-artifact@v4
         with:
           name: macos-pkg
-          path: ${{ steps.Package_with_pkgbuild.outputs.pkg_path || steps.find_pkg.outputs.pkg_path || '' }}
+          path: ${{ env.PKG_PATH }}
+
+      - name: Upload release asset (on tag)
+        if: startsWith(github.ref, 'refs/tags/') && env.PKG_PATH != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.PKG_PATH }}
