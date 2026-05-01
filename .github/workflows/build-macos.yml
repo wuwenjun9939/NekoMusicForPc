@@ -1,5 +1,4 @@
-# macOS build + package workflow for NekoMusic (with diagnostics)
-name: Build macOS PKG
+name: Build macOS PKG (pkgbuild fallback)
 
 on:
   push:
@@ -32,29 +31,6 @@ jobs:
           arch: 'clang_64'
           modules: 'qtmultimedia'
 
-      - name: Show Qt install path (debug)
-        run: |
-          echo "Qt6_DIR: $Qt6_DIR"
-          ls -la "$Qt6_DIR" || echo "Qt6_DIR not found"
-
-      - name: Generate AppIcon.icns
-        run: |
-          cd "$GITHUB_WORKSPACE"
-          mkdir -p src/resources/macos
-          ICONSET=$(mktemp -d)/AppIcon.iconset
-          mkdir -p "$ICONSET"
-          SRC="$GITHUB_WORKSPACE/packaging/icons/hicolor/512x512/apps/nekomusic.png"
-          if [ ! -f "$SRC" ]; then
-            echo "WARN: source icon not found: $SRC"
-          else
-            for size in 16 32 64 128 256 512; do
-              sips -z $size $size "$SRC" --out "$ICONSET/icon_${size}x${size}.png"
-              sips -z $((size*2)) $((size*2)) "$SRC" --out "$ICONSET/icon_${size}x${size}@2x.png"
-            done
-            iconutil -c icns "$ICONSET" -o "$GITHUB_WORKSPACE/src/resources/macos/AppIcon.icns"
-            ls -la src/resources/macos/AppIcon.icns || true
-          fi
-
       - name: Configure CMake
         run: |
           set -e
@@ -62,7 +38,6 @@ jobs:
           rm -rf build-macos
           mkdir -p build-macos
           cd build-macos
-          echo "Running cmake ..."
           cmake .. \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
@@ -82,82 +57,48 @@ jobs:
           INSTALL_PREFIX="$BUILD_DIR/install"
           echo "Installing to $INSTALL_PREFIX"
           cd "$BUILD_DIR"
-          cmake --install . --prefix "$INSTALL_PREFIX"
+          cmake --install . --prefix "$INSTALL_PREFIX" || { echo "cmake --install failed"; exit 1; }
           echo "== install dir listing =="
           ls -la "$INSTALL_PREFIX" || true
           echo "== find .app =="
           find "$INSTALL_PREFIX" -maxdepth 4 -type d -name "*.app" -print || true
 
-      - name: Dump CPack/CMake debug info
-        run: |
-          set -e
-          cd "$GITHUB_WORKSPACE/build-macos"
-          echo "== CPackConfig.cmake =="
-          if [ -f CPackConfig.cmake ]; then sed -n '1,200p' CPackConfig.cmake; else echo "(no CPackConfig.cmake)"; fi
-          echo "== CMakeCache.txt relevant lines =="
-          if [ -f CMakeCache.txt ]; then grep -E 'CPACK|INSTALL|CMAKE_INSTALL_PREFIX|PROJECT_NAME' CMakeCache.txt || true; else echo "(no CMakeCache.txt)"; fi
-          echo "== cmake -LA -N | grep CPACK =="
-          cmake -LA -N . | grep -i CPACK || true
-          echo "== project name check =="
-          # show what project() says by reading top of CMakeLists
-          head -n 40 "$GITHUB_WORKSPACE/CMakeLists.txt" | sed -n '1,80p'
-
-      - name: Package PKG (explicit CPACK_INSTALL_CMAKE_PROJECTS)
+      - name: Package with pkgbuild (component -> /Applications)
         run: |
           set -e
           BUILD_DIR="$GITHUB_WORKSPACE/build-macos"
           INSTALL_PREFIX="$BUILD_DIR/install"
           PKG_OUTDIR="$BUILD_DIR/pkg"
           mkdir -p "$PKG_OUTDIR"
-          cd "$BUILD_DIR"
-
-          # Ensure project name matches CMakeLists.txt 'project(...)' value.
-          # In this repo CMakeLists defines: project(NekoMusic ...)
-          PROJECT_NAME="NekoMusic"
-          echo "Using CPACK_INSTALL_CMAKE_PROJECTS=\"$BUILD_DIR;${PROJECT_NAME};ALL;${INSTALL_PREFIX}\""
-          echo "PKG outdir: $PKG_OUTDIR"
-
-          # Run cpack in verbose mode; explicitly set CPACK vars
-          cpack -G productbuild \
-            -D CPACK_INSTALL_CMAKE_PROJECTS="${BUILD_DIR};${PROJECT_NAME};ALL;${INSTALL_PREFIX}" \
-            -D CPACK_PACKAGE_DIRECTORY="${PKG_OUTDIR}" \
-            -D CPACK_PACKAGING_INSTALL_PREFIX="/" \
-            -V || (echo "CPack failed"; exit 1)
-
-      - name: Show pkg output (and expand)
-        id: show-pkg
-        run: |
-          set -e
-          cd "$GITHUB_WORKSPACE"
-          echo "== pkg dir listing =="
-          ls -la build-macos/pkg || true
-          PKG=$(find build-macos -name "*.pkg" -type f | head -1 || true)
-          if [ -z "$PKG" ]; then
-            echo "❌ No .pkg produced"
+          # find the first .app installed
+          APP_DIR=$(find "$INSTALL_PREFIX" -type d -name "*.app" -print | head -n1 || true)
+          if [ -z "$APP_DIR" ]; then
+            echo "❌ No .app found in install prefix ($INSTALL_PREFIX). Install listing:"
+            ls -la "$INSTALL_PREFIX"
             exit 1
           fi
-          echo "Found PKG: $PKG"
-          echo "Size:"
-          ls -lh "$PKG"
-          echo "Dump pkg contents via pkgutil --expand:"
-          TMPDIR=$(mktemp -d)
-          pkgutil --expand "$PKG" "$TMPDIR/expanded" || echo "pkgutil expand failed"
-          echo "Expanded contents:"
-          ls -la "$TMPDIR/expanded" || true
-          echo "Listing payload:"
-          if [ -d "$TMPDIR/expanded" ]; then
-            find "$TMPDIR/expanded" -maxdepth 4 -print || true
+          echo "Found app to package: $APP_DIR"
+          # use a version string (try to read from CMakeCache or fallback)
+          VERSION="1.0.0"
+          if [ -f "$BUILD_DIR/CMakeCache.txt" ]; then
+            grep -E 'PROJECT_VERSION' "$BUILD_DIR/CMakeCache.txt" | sed -n 's/.*=//p' | head -n1 | grep . && VERSION=$(grep -E 'PROJECT_VERSION' "$BUILD_DIR/CMakeCache.txt" | sed -n 's/.*=//p' | head -n1)
           fi
-          echo "::set-output name=pkg_path::$PKG"
+          PKG_PATH="$PKG_OUTDIR/NekoMusic-${VERSION}.pkg"
+          echo "Creating pkg: $PKG_PATH (installing to /Applications)"
+          # pkgbuild with --component is the simplest and most reliable for .app bundles
+          pkgbuild --component "$APP_DIR" --install-location "/Applications" \
+            --identifier "com.nekomusic.app" --version "$VERSION" "$PKG_PATH"
+          echo "== pkg created =="
+          ls -lh "$PKG_PATH"
+          # expand to inspect contents
+          TMPDIR=$(mktemp -d)
+          pkgutil --expand "$PKG_PATH" "$TMPDIR/expanded" || echo "pkgutil expand failed"
+          echo "Expanded package tree:"
+          find "$TMPDIR/expanded" -maxdepth 4 -print || true
+          echo "::set-output name=pkg_path::$PKG_PATH"
 
       - name: Upload PKG artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-pkg
-          path: ${{ steps.show-pkg.outputs.pkg_path }}
-
-      - name: Upload release asset (on tag)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ steps.show-pkg.outputs.pkg_path }}
+          path: ${{ steps.Package_with_pkgbuild.outputs.pkg_path || steps.package_with_pkgbuild.outputs.pkg_path || steps.show_pkg.outputs.pkg_path || '' }}
