@@ -54,13 +54,19 @@ jobs:
       - name: Verify Universal Binary
         run: |
           cd "$GITHUB_WORKSPACE"
-          APP_PATH="build-macos/src/NekoMusic.app/Contents/MacOS/NekoMusic"
-          if [ -f "$APP_PATH" ]; then
-            echo "✅ Found app binary: $APP_PATH"
-            lipo -info "$APP_PATH"
+          APP_DIR=$(find build-macos/install -name "*.app" -type d | head -1)
+          if [ -z "$APP_DIR" ]; then
+            echo "❌ No .app bundle found in build-macos/install/"
+            ls -la build-macos/install/
+            exit 1
+          fi
+          BIN_PATH="$APP_DIR/Contents/MacOS/$(basename "$APP_DIR" .app)"
+          if [ -f "$BIN_PATH" ]; then
+            echo "✅ Found app binary: $BIN_PATH"
+            lipo -info "$BIN_PATH"
           else
-            echo "❌ App binary not found at $APP_PATH"
-            ls -la build-macos/src/
+            echo "❌ Executable not found at $BIN_PATH"
+            ls -la "$APP_DIR/Contents/MacOS/"
             exit 1
           fi
 
