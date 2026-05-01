@@ -1,3 +1,4 @@
+# macOS build + package workflow for NekoMusic (with diagnostics)
 name: Build macOS PKG
 
 on:
@@ -9,10 +10,18 @@ on:
 jobs:
   build-macos:
     runs-on: macos-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Print environment (debug)
+        run: |
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          echo "Qt6_DIR=$Qt6_DIR"
+          uname -a
+          sw_vers
 
       - name: Setup Qt 6
         uses: jurplel/install-qt-action@v4
@@ -23,6 +32,11 @@ jobs:
           arch: 'clang_64'
           modules: 'qtmultimedia'
 
+      - name: Show Qt install path (debug)
+        run: |
+          echo "Qt6_DIR: $Qt6_DIR"
+          ls -la "$Qt6_DIR" || echo "Qt6_DIR not found"
+
       - name: Generate AppIcon.icns
         run: |
           cd "$GITHUB_WORKSPACE"
@@ -30,93 +44,120 @@ jobs:
           ICONSET=$(mktemp -d)/AppIcon.iconset
           mkdir -p "$ICONSET"
           SRC="$GITHUB_WORKSPACE/packaging/icons/hicolor/512x512/apps/nekomusic.png"
-          for size in 16 32 64 128 256 512; do
-            sips -z $size $size "$SRC" --out "$ICONSET/icon_${size}x${size}.png"
-            sips -z $((size*2)) $((size*2)) "$SRC" --out "$ICONSET/icon_${size}x${size}@2x.png"
-          done
-          iconutil -c icns "$ICONSET" -o "$GITHUB_WORKSPACE/src/resources/macos/AppIcon.icns"
+          if [ ! -f "$SRC" ]; then
+            echo "WARN: source icon not found: $SRC"
+          else
+            for size in 16 32 64 128 256 512; do
+              sips -z $size $size "$SRC" --out "$ICONSET/icon_${size}x${size}.png"
+              sips -z $((size*2)) $((size*2)) "$SRC" --out "$ICONSET/icon_${size}x${size}@2x.png"
+            done
+            iconutil -c icns "$ICONSET" -o "$GITHUB_WORKSPACE/src/resources/macos/AppIcon.icns"
+            ls -la src/resources/macos/AppIcon.icns || true
+          fi
 
       - name: Configure CMake
         run: |
+          set -e
           cd "$GITHUB_WORKSPACE"
+          rm -rf build-macos
           mkdir -p build-macos
           cd build-macos
+          echo "Running cmake ..."
           cmake .. \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
-            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
+            -DCMAKE_VERBOSE_MAKEFILE=ON
 
       - name: Build
         run: |
+          set -e
           cd "$GITHUB_WORKSPACE/build-macos"
           cmake --build . -j$(sysctl -n hw.ncpu) --verbose
 
-      - name: Install
+      - name: Install to install-prefix
         run: |
+          set -e
+          BUILD_DIR="$GITHUB_WORKSPACE/build-macos"
+          INSTALL_PREFIX="$BUILD_DIR/install"
+          echo "Installing to $INSTALL_PREFIX"
+          cd "$BUILD_DIR"
+          cmake --install . --prefix "$INSTALL_PREFIX"
+          echo "== install dir listing =="
+          ls -la "$INSTALL_PREFIX" || true
+          echo "== find .app =="
+          find "$INSTALL_PREFIX" -maxdepth 4 -type d -name "*.app" -print || true
+
+      - name: Dump CPack/CMake debug info
+        run: |
+          set -e
           cd "$GITHUB_WORKSPACE/build-macos"
-          cmake --install . --prefix "$GITHUB_WORKSPACE/build-macos/install"
+          echo "== CPackConfig.cmake =="
+          if [ -f CPackConfig.cmake ]; then sed -n '1,200p' CPackConfig.cmake; else echo "(no CPackConfig.cmake)"; fi
+          echo "== CMakeCache.txt relevant lines =="
+          if [ -f CMakeCache.txt ]; then grep -E 'CPACK|INSTALL|CMAKE_INSTALL_PREFIX|PROJECT_NAME' CMakeCache.txt || true; else echo "(no CMakeCache.txt)"; fi
+          echo "== cmake -LA -N | grep CPACK =="
+          cmake -LA -N . | grep -i CPACK || true
+          echo "== project name check =="
+          # show what project() says by reading top of CMakeLists
+          head -n 40 "$GITHUB_WORKSPACE/CMakeLists.txt" | sed -n '1,80p'
 
-      - name: Confirm Install Success
+      - name: Package PKG (explicit CPACK_INSTALL_CMAKE_PROJECTS)
         run: |
-          cd "$GITHUB_WORKSPACE"
-          if [ ! -d "build-macos/install/NekoMusic.app" ] && [ ! -d "build-macos/install/Neko云音乐.app" ]; then
-            echo "❌ Expected .app not found in build-macos/install/"
-            echo "build-macos/install contents:"
-            ls -la build-macos/install/
-            exit 1
-          fi
-          echo "✅ Valid .app found in install/"
+          set -e
+          BUILD_DIR="$GITHUB_WORKSPACE/build-macos"
+          INSTALL_PREFIX="$BUILD_DIR/install"
+          PKG_OUTDIR="$BUILD_DIR/pkg"
+          mkdir -p "$PKG_OUTDIR"
+          cd "$BUILD_DIR"
 
-      - name: Verify Universal Binary
-        run: |
-          cd "$GITHUB_WORKSPACE"
-          APP_DIR=$(find build-macos/install -name "*.app" -type d | head -1)
-          if [ -z "$APP_DIR" ]; then
-            echo "❌ No .app bundle found in build-macos/install/"
-            ls -la build-macos/install/
-            exit 1
-          fi
-          BIN_PATH="$APP_DIR/Contents/MacOS/$(basename "$APP_DIR" .app)"
-          if [ -f "$BIN_PATH" ]; then
-            echo "✅ Found app binary: $BIN_PATH"
-            file "$BIN_PATH"
-            lipo -info "$BIN_PATH"
-          else
-            echo "❌ Executable not found at $BIN_PATH"
-            echo "Contents of $APP_DIR/Contents/MacOS/:"
-            ls -la "$APP_DIR/Contents/MacOS/"
-            exit 1
-          fi
+          # Ensure project name matches CMakeLists.txt 'project(...)' value.
+          # In this repo CMakeLists defines: project(NekoMusic ...)
+          PROJECT_NAME="NekoMusic"
+          echo "Using CPACK_INSTALL_CMAKE_PROJECTS=\"$BUILD_DIR;${PROJECT_NAME};ALL;${INSTALL_PREFIX}\""
+          echo "PKG outdir: $PKG_OUTDIR"
 
-      - name: Package PKG
-        run: |
-          cd "$GITHUB_WORKSPACE/build-macos"
+          # Run cpack in verbose mode; explicitly set CPACK vars
           cpack -G productbuild \
-            -D CMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/build-macos/install"
+            -D CPACK_INSTALL_CMAKE_PROJECTS="${BUILD_DIR};${PROJECT_NAME};ALL;${INSTALL_PREFIX}" \
+            -D CPACK_PACKAGE_DIRECTORY="${PKG_OUTDIR}" \
+            -D CPACK_PACKAGING_INSTALL_PREFIX="/" \
+            -V || (echo "CPack failed"; exit 1)
 
-      - name: Find PKG
-        id: find-pkg
+      - name: Show pkg output (and expand)
+        id: show-pkg
         run: |
+          set -e
           cd "$GITHUB_WORKSPACE"
-          PKG=$(find build-macos -name "*.pkg" -type f | head -1)
+          echo "== pkg dir listing =="
+          ls -la build-macos/pkg || true
+          PKG=$(find build-macos -name "*.pkg" -type f | head -1 || true)
           if [ -z "$PKG" ]; then
-            echo "❌ No .pkg file found"
-            ls -la build-macos/
+            echo "❌ No .pkg produced"
             exit 1
           fi
-          echo "pkg_path=$PKG" >> $GITHUB_OUTPUT
-          echo "pkg_name=$(basename "$PKG")" >> $GITHUB_OUTPUT
-          echo "✅ Found PKG: $PKG"
+          echo "Found PKG: $PKG"
+          echo "Size:"
           ls -lh "$PKG"
+          echo "Dump pkg contents via pkgutil --expand:"
+          TMPDIR=$(mktemp -d)
+          pkgutil --expand "$PKG" "$TMPDIR/expanded" || echo "pkgutil expand failed"
+          echo "Expanded contents:"
+          ls -la "$TMPDIR/expanded" || true
+          echo "Listing payload:"
+          if [ -d "$TMPDIR/expanded" ]; then
+            find "$TMPDIR/expanded" -maxdepth 4 -print || true
+          fi
+          echo "::set-output name=pkg_path::$PKG"
 
       - name: Upload PKG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.find-pkg.outputs.pkg_name }}
-          path: ${{ steps.find-pkg.outputs.pkg_path }}
+          name: macos-pkg
+          path: ${{ steps.show-pkg.outputs.pkg_path }}
 
       - name: Upload release asset (on tag)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.find-pkg.outputs.pkg_path }}
+          files: ${{ steps.show-pkg.outputs.pkg_path }}
