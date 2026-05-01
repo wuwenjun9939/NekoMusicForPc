@@ -48,19 +48,20 @@ jobs:
 
       - name: Build
         run: |
-          cd "$GITHUB_WORKSPACE"
-          cmake --build build-macos -j$(sysctl -n hw.ncpu)
+          cd "$GITHUB_WORKSPACE/build-macos"
+          cmake --build . -j$(sysctl -n hw.ncpu) --verbose
 
       - name: Install
         run: |
-          cd "$GITHUB_WORKSPACE"
-          cmake --install build-macos --prefix build-macos/install
+          cd "$GITHUB_WORKSPACE/build-macos"
+          cmake --install . --prefix "$GITHUB_WORKSPACE/build-macos/install"
 
       - name: Confirm Install Success
         run: |
           cd "$GITHUB_WORKSPACE"
           if [ ! -d "build-macos/install/NekoMusic.app" ] && [ ! -d "build-macos/install/Neko云音乐.app" ]; then
             echo "❌ Expected .app not found in build-macos/install/"
+            echo "build-macos/install contents:"
             ls -la build-macos/install/
             exit 1
           fi
@@ -78,31 +79,33 @@ jobs:
           BIN_PATH="$APP_DIR/Contents/MacOS/$(basename "$APP_DIR" .app)"
           if [ -f "$BIN_PATH" ]; then
             echo "✅ Found app binary: $BIN_PATH"
+            file "$BIN_PATH"
             lipo -info "$BIN_PATH"
           else
             echo "❌ Executable not found at $BIN_PATH"
+            echo "Contents of $APP_DIR/Contents/MacOS/:"
             ls -la "$APP_DIR/Contents/MacOS/"
             exit 1
           fi
 
       - name: Package PKG
         run: |
-          cd "$GITHUB_WORKSPACE"
-          cd build-macos
-          cpack \
-            -G productbuild \
-            -D CPACK_INSTALL_CMAKE_PROJECTS="build-macos;NekoMusic;ALL;/" \
-            -D CPACK_PACKAGE_DIRECTORY="$GITHUB_WORKSPACE/build-macos/pkg" \
-            -D CPACK_NO_PREINSTALL_SCRIPTS=ON \
-            -D CPACK_NO_POSTINSTALL_SCRIPTS=ON
+          cd "$GITHUB_WORKSPACE/build-macos"
+          cpack -G productbuild
 
       - name: Find PKG
         id: find-pkg
         run: |
           cd "$GITHUB_WORKSPACE"
           PKG=$(find build-macos -name "*.pkg" -type f | head -1)
+          if [ -z "$PKG" ]; then
+            echo "❌ No .pkg file found"
+            ls -la build-macos/
+            exit 1
+          fi
           echo "pkg_path=$PKG" >> $GITHUB_OUTPUT
           echo "pkg_name=$(basename "$PKG")" >> $GITHUB_OUTPUT
+          echo "✅ Found PKG: $PKG"
 
       - name: Upload PKG artifact
         uses: actions/upload-artifact@v4
