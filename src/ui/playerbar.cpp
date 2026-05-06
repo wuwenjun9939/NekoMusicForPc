@@ -28,6 +28,7 @@
 #include <QTimer>
 #include <QEvent>
 #include <QCursor>
+#include <QRect>
 
 namespace {
 const QColor kCtrlNormal = QColor(245, 240, 255, 180);
@@ -236,11 +237,15 @@ void PlayerBar::setupUi()
     volLay->addWidget(m_volumeBtn);
     rl->addWidget(volWrapper);
 
-    // 音量面板 (垂直弹出)
-    m_volumePanel = new QWidget(this);
+    // 音量面板 (垂直弹出) — 父级用顶层窗口，避免面板在播放栏上方时被父控件裁剪
+    QWidget *volHost = window();
+    if (!volHost)
+        volHost = this;
+    m_volumePanel = new QWidget(volHost);
     m_volumePanel->setObjectName("pbVolumePanel");
     m_volumePanel->setFixedWidth(40);
     m_volumePanel->setFixedHeight(160);
+    m_volumePanel->setFocusPolicy(Qt::NoFocus);
     m_volumePanel->hide();
     m_volumePanel->installEventFilter(this);
     volWrapper->installEventFilter(this);
@@ -297,27 +302,41 @@ void PlayerBar::setupUi()
 
 bool PlayerBar::eventFilter(QObject *watched, QEvent *event)
 {
+    auto volumeGlobalHotRect = [this]() -> QRect {
+        if (!m_volumeBtn || !m_volumePanel)
+            return {};
+        const QRect btnGlobal(m_volumeBtn->mapToGlobal(QPoint(0, 0)), m_volumeBtn->size());
+        const QRect panelGlobal(m_volumePanel->mapToGlobal(QPoint(0, 0)), m_volumePanel->size());
+        return btnGlobal.united(panelGlobal);
+    };
+
     if (watched->objectName() == "pbVolumeWrapper") {
         if (event->type() == QEvent::Enter) {
-            if (m_volumePanel) {
-                QPoint pos = m_volumeBtn->mapTo(this, QPoint(0, 0));
-                m_volumePanel->move(pos.x() + (m_volumeBtn->width() - m_volumePanel->width()) / 2, 
-                                   pos.y() - m_volumePanel->height() - 10);
+            if (m_volumePanel && m_volumeBtn) {
+                QWidget *host = m_volumePanel->parentWidget();
+                if (!host)
+                    host = window();
+                if (!host)
+                    host = this;
+                const QPoint ref = m_volumeBtn->mapTo(host, QPoint(0, 0));
+                const int x = ref.x() + (m_volumeBtn->width() - m_volumePanel->width()) / 2;
+                // 与按钮保留少量重叠，避免从按钮移到滑块时经过缝隙触发 Leave 误关
+                const int overlap = 8;
+                const int y = ref.y() - m_volumePanel->height() + overlap;
+                m_volumePanel->move(x, y);
                 m_volumePanel->show();
                 m_volumePanel->raise();
             }
         } else if (event->type() == QEvent::Leave) {
-            QPoint globalPos = QCursor::pos();
-            if (m_volumePanel && !m_volumePanel->geometry().translated(mapToGlobal(QPoint(0,0))).contains(globalPos)) {
-                m_volumePanel->hide();
+            if (m_volumePanel && m_volumePanel->isVisible()) {
+                if (!volumeGlobalHotRect().contains(QCursor::pos()))
+                    m_volumePanel->hide();
             }
         }
     } else if (watched == m_volumePanel) {
         if (event->type() == QEvent::Leave) {
-            QPoint globalPos = QCursor::pos();
-            if (m_volumeBtn && !m_volumeBtn->geometry().translated(mapToGlobal(QPoint(0,0))).contains(globalPos)) {
+            if (!volumeGlobalHotRect().contains(QCursor::pos()))
                 m_volumePanel->hide();
-            }
         }
     }
     return QWidget::eventFilter(watched, event);
