@@ -41,6 +41,7 @@ public:
 
 protected:
     void paintEvent(QPaintEvent *) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void setupUi();
@@ -48,13 +49,19 @@ private:
     void setCoverPixmap(const QPixmap &pm);
     void loadCoverAsync(const QString &url);
     void updatePlayModeIcon();
+    void updateVolumeIcon(int value);
 
     PlayerEngine *m_engine = nullptr;
     QPushButton *m_playBtn = nullptr;
     QPushButton *m_playModeBtn = nullptr;
     QPushButton *m_heartBtn = nullptr;
     QSlider *m_progress = nullptr;
-    QSlider *m_volume = nullptr;
+    
+    QWidget *m_volumePanel = nullptr;
+    QSlider *m_volumeSlider = nullptr;
+    QPushButton *m_volumeBtn = nullptr;
+    QLabel *m_volumeLabel = nullptr;
+
     QLabel *m_songName = nullptr;
     QLabel *m_artist = nullptr;
     QLabel *m_curTime = nullptr;

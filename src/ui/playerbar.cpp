@@ -26,6 +26,8 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QTimer>
+#include <QEvent>
+#include <QCursor>
 
 namespace {
 const QColor kCtrlNormal = QColor(245, 240, 255, 180);
@@ -219,19 +221,53 @@ void PlayerBar::setupUi()
     });
     rl->addWidget(playlistBtn);
 
-    m_volume = new QSlider(Qt::Horizontal, this);
-    m_volume->setObjectName("pbVolume");
-    m_volume->setFixedWidth(90);
-    m_volume->setRange(0, 100);
-    m_volume->setValue(80);
-    rl->addWidget(m_volume);
+    // 音量控制
+    auto *volWrapper = new QWidget(this);
+    volWrapper->setObjectName("pbVolumeWrapper");
+    auto *volLay = new QHBoxLayout(volWrapper);
+    volLay->setContentsMargins(0, 0, 0, 0);
+    volLay->setSpacing(0);
+
+    m_volumeBtn = new QPushButton(this);
+    m_volumeBtn->setObjectName("pbVolumeBtn");
+    m_volumeBtn->setFixedSize(28, 28);
+    m_volumeBtn->setIcon(Icons::icon(Icons::kVolumeHigh, 18, kCtrlNormal, kCtrlActive));
+    m_volumeBtn->setCursor(Qt::PointingHandCursor);
+    volLay->addWidget(m_volumeBtn);
+    rl->addWidget(volWrapper);
+
+    // 音量面板 (垂直弹出)
+    m_volumePanel = new QWidget(this);
+    m_volumePanel->setObjectName("pbVolumePanel");
+    m_volumePanel->setFixedWidth(40);
+    m_volumePanel->setFixedHeight(160);
+    m_volumePanel->hide();
+    m_volumePanel->installEventFilter(this);
+    volWrapper->installEventFilter(this);
+
+    auto *vpLay = new QVBoxLayout(m_volumePanel);
+    vpLay->setContentsMargins(8, 12, 8, 12);
+    vpLay->setSpacing(8);
+
+    m_volumeSlider = new QSlider(Qt::Vertical, m_volumePanel);
+    m_volumeSlider->setObjectName("pbVolumeSlider");
+    m_volumeSlider->setRange(0, 100);
+    m_volumeSlider->setValue(80);
+    vpLay->addWidget(m_volumeSlider, 1, Qt::AlignHCenter);
+
+    m_volumeLabel = new QLabel("80%", m_volumePanel);
+    m_volumeLabel->setObjectName("pbVolumeLabel");
+    m_volumeLabel->setAlignment(Qt::AlignCenter);
+    vpLay->addWidget(m_volumeLabel);
 
     lay->addWidget(right);
 
     // 连接引擎
     if (m_engine) {
-        connect(m_volume, &QSlider::valueChanged, this, [this](int v) {
+        connect(m_volumeSlider, &QSlider::valueChanged, this, [this](int v) {
             m_engine->setVolume(v / 100.0f);
+            m_volumeLabel->setText(QString("%1%").arg(v));
+            updateVolumeIcon(v);
         });
         connect(m_playBtn, &QPushButton::clicked, this, [this]() {
             if (m_engine->playbackState() == PlayerEngine::Playing) m_engine->fadeOut();
@@ -248,6 +284,44 @@ void PlayerBar::setupUi()
             if (m_durTime) m_durTime->setText(formatTime(dur));
         });
     }
+}
+
+bool PlayerBar::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched->objectName() == "pbVolumeWrapper") {
+        if (event->type() == QEvent::Enter) {
+            if (m_volumePanel) {
+                QPoint pos = m_volumeBtn->mapTo(this, QPoint(0, 0));
+                m_volumePanel->move(pos.x() + (m_volumeBtn->width() - m_volumePanel->width()) / 2, 
+                                   pos.y() - m_volumePanel->height() - 10);
+                m_volumePanel->show();
+                m_volumePanel->raise();
+            }
+        } else if (event->type() == QEvent::Leave) {
+            QPoint globalPos = QCursor::pos();
+            if (m_volumePanel && !m_volumePanel->geometry().translated(mapToGlobal(QPoint(0,0))).contains(globalPos)) {
+                m_volumePanel->hide();
+            }
+        }
+    } else if (watched == m_volumePanel) {
+        if (event->type() == QEvent::Leave) {
+            QPoint globalPos = QCursor::pos();
+            if (m_volumeBtn && !m_volumeBtn->geometry().translated(mapToGlobal(QPoint(0,0))).contains(globalPos)) {
+                m_volumePanel->hide();
+            }
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+void PlayerBar::updateVolumeIcon(int value)
+{
+    if (!m_volumeBtn) return;
+    const char *path = Icons::kVolumeHigh;
+    if (value == 0) path = Icons::kVolumeMute;
+    else if (value < 50) path = Icons::kVolumeLow;
+    
+    m_volumeBtn->setIcon(Icons::icon(path, 18, kCtrlNormal, kCtrlActive));
 }
 
 void PlayerBar::retranslate()
